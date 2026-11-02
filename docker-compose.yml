@@ -1,0 +1,35 @@
+name: immoservice
+services:
+  db:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?Variable manquante}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Variable manquante}
+      POSTGRES_DB: ${POSTGRES_DB:?Variable manquante}
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT:-5433}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\""]
+      interval: 2s
+      timeout: 5s
+      retries: 30
+  db-test:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: ${POSTGRES_TEST_USER:?Variable manquante}
+      POSTGRES_PASSWORD: ${POSTGRES_TEST_PASSWORD:?Variable manquante}
+      POSTGRES_DB: ${POSTGRES_TEST_DB:?Variable manquante}
+    ports:
+      - "127.0.0.1:${POSTGRES_TEST_PORT:-5434}:5432"
+    volumes:
+      - pgdata-test:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\""]
+      interval: 2s
+      timeout: 5s
+      retries: 30
+volumes:
+  pgdata:
+  pgdata-test:

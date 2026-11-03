@@ -1,7 +1,9 @@
 /* tslint:disable */
 /* eslint-disable */
-export * from './AnnonceResume';
-export * from './ApiError';
-export * from './ApiErrorError';
-export * from './ListAnnonces200Response';
-export * from './ListAnnonces200ResponsePagination';
+export * from './AnnonceDetail.js';
+export * from './AnnonceDetailAllOfPhotos.js';
+export * from './AnnonceResume.js';
+export * from './ApiError.js';
+export * from './ApiErrorError.js';
+export * from './ListAnnonces200Response.js';
+export * from './ListAnnonces200ResponsePagination.js';

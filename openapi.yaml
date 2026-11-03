@@ -95,8 +95,85 @@ paths:
               schema:
                 $ref: "#/components/schemas/ApiError"
 
+  /annonces/{id}:
+    get:
+      tags:
+        - Annonces
+      summary: Consulter le détail d'une annonce publiée
+      operationId: getAnnonceById
+      security: []
+
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Identifiant de l'annonce.
+          schema:
+            type: string
+            minLength: 1
+
+      responses:
+        "200":
+          description: Détails de l'annonce publiée.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnnonceDetail"
+
+        "400":
+          description: Identifiant invalide.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
+        "404":
+          description: Annonce inexistante ou non publiée.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
 components:
   schemas:
+    AnnonceDetail:
+      allOf:
+        - $ref: "#/components/schemas/AnnonceResume"
+        - type: object
+          required:
+            - statut
+            - auteurId
+            - photos
+            - updatedAt
+          properties:
+            description:
+              type: [string, "null"]
+            statut:
+              type: string
+              enum: [PUBLIE]
+            dateDisponibilite:
+              type: [string, "null"]
+              format: date-time
+            updatedAt:
+              type: string
+              format: date-time
+            auteurId:
+              type: string
+            photos:
+              type: array
+              items:
+                type: object
+                required: [id, url, alt, annonceId]
+                properties:
+                  id:
+                    type: string
+                  url:
+                    type: string
+                  alt:
+                    type: string
+                  annonceId:
+                    type: string
+
     AnnonceResume:
       type: object
       required:

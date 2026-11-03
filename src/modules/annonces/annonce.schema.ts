@@ -61,8 +61,22 @@ export const annonceQuerySchema = z.object({
     .optional()
 }).strict();
 
+
+/**
+ * Valide l'identifiant transmis dans l'URL.
+ * Exemple : GET /annonces/demo-immo-annonce-12
+ */
+export const annonceIdSchema = z.object({
+  id: z.string()
+    .trim()
+    .min(1, "Identifiant obligatoire")
+    .max(100, "Identifiant trop long")
+}).strict();
+
+
+
 // Dérive le type TypeScript directement du schéma afin que le code métier
 // reste synchronisé avec les données réellement validées.
-export type AnnonceQuery = z.infer<
-  typeof annonceQuerySchema
->;
+export type AnnonceQuery = z.infer<typeof annonceQuerySchema>;
+
+export type AnnonceIdParams = z.infer<typeof annonceIdSchema>;

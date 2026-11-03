@@ -96,7 +96,36 @@ export function createAnnonceRepository(
         };
     }
 
+    /**
+     * Recherche une annonce publiée à partir de son identifiant.
+     * Retourne null si l'annonce n'existe pas ou est en brouillon.
+     */
+    async function findPublishedById(id: string) {
+        const annonce = await prisma.annonce.findFirst({
+            where: {
+                id,
+                statut: "PUBLIE"
+            },
+            include: {
+                photos: true
+            }
+        });
+
+        // Annonce inexistante ou non publiée
+        if (!annonce) {
+            return null;
+        }
+
+        // Conversion des types pour la réponse JSON
+        return {
+            ...annonce,
+            prix: annonce.prix.toFixed(2),
+            createdAt: annonce.createdAt.toISOString()
+        };
+    }
+
     return {
-        findPublishedPage
+        findPublishedPage,
+        findPublishedById
     };
 }

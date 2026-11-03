@@ -12,21 +12,21 @@
  * Do not edit the class manually.
  */
 
-import { mapValues } from '../runtime';
-import type { AnnonceResume } from './AnnonceResume';
+import { mapValues } from '../runtime.js';
+import type { AnnonceResume } from './AnnonceResume.js';
 import {
     AnnonceResumeFromJSON,
     AnnonceResumeFromJSONTyped,
     AnnonceResumeToJSON,
     AnnonceResumeToJSONTyped,
-} from './AnnonceResume';
-import type { ListAnnonces200ResponsePagination } from './ListAnnonces200ResponsePagination';
+} from './AnnonceResume.js';
+import type { ListAnnonces200ResponsePagination } from './ListAnnonces200ResponsePagination.js';
 import {
     ListAnnonces200ResponsePaginationFromJSON,
     ListAnnonces200ResponsePaginationFromJSONTyped,
     ListAnnonces200ResponsePaginationToJSON,
     ListAnnonces200ResponsePaginationToJSONTyped,
-} from './ListAnnonces200ResponsePagination';
+} from './ListAnnonces200ResponsePagination.js';
 
 /**
  * 

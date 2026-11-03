@@ -1,6 +1,7 @@
-.openapi-generator-ignore
 apis/AnnoncesApi.ts
 apis/index.ts
+docs/AnnonceDetail.md
+docs/AnnonceDetailAllOfPhotos.md
 docs/AnnonceResume.md
 docs/AnnoncesApi.md
 docs/ApiError.md
@@ -8,6 +9,8 @@ docs/ApiErrorError.md
 docs/ListAnnonces200Response.md
 docs/ListAnnonces200ResponsePagination.md
 index.ts
+models/AnnonceDetail.ts
+models/AnnonceDetailAllOfPhotos.ts
 models/AnnonceResume.ts
 models/ApiError.ts
 models/ApiErrorError.ts

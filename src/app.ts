@@ -6,6 +6,8 @@ import { createAnnonceRouter } from "./modules/annonces/annonce.routes.js";
 import { readFileSync } from "node:fs";
 import swaggerUi from "swagger-ui-express";
 import YAML from "yaml";
+import type { ErrorRequestHandler } from "express";
+import { apiError } from "./shared/api-error.js";
 
 /**
  * Construit l'application Express.
@@ -34,6 +36,24 @@ export function createApp(prisma: PrismaClient) {
 
   // Affichage de la documentation Swagger sur /docs.
   app.use("/docs", swaggerUi.serve, swaggerUi.setup(openapi));
+
+  /**
+ * Gère les erreurs techniques non prises en charge
+ * par les contrôleurs et retourne une réponse JSON uniforme.
+ */
+  const errorHandler: ErrorRequestHandler = (err, _req, res, next) => {
+    if (res.headersSent) {
+      return next(err);
+    }
+
+    console.error(err);
+
+    res.status(500).json(
+      apiError("INTERNAL_ERROR", "Erreur interne du serveur")
+    );
+  };
+
+  app.use(errorHandler);
 
   return app;
 }

@@ -1,8 +1,10 @@
 
 import { describe, it, expect } from "vitest";
 
-import { annonceQuerySchema } from
-    "../../../src/modules/annonces/annonce.schema.js";
+import {
+    annonceQuerySchema,
+    annonceIdSchema
+} from "../../../src/modules/annonces/annonce.schema.js";
 
 describe("GET /annonces - Validation des paramètres", () => {
 
@@ -99,5 +101,49 @@ describe("GET /annonces - Validation des paramètres", () => {
 
         expect(result.success).toBe(false);
     });
+});
+
+
+describe("GET /annonces/:id - Validation de l'identifiant", () => {
+
+        /**
+         * Vérifie que Zod accepte un identifiant valide.
+         * Les identifiants du projet ne sont pas obligatoirement des UUID.
+         */
+        it("accepte un identifiant valide", () => {
+            const result = annonceIdSchema.safeParse({
+                id: "demo-immo-annonce-12"
+            });
+
+            expect(result.success).toBe(true);
+        });
+
+        /**
+         * Vérifie qu'un identifiant composé uniquement
+         * d'espaces est refusé.
+         */
+        it("refuse un identifiant vide", () => {
+            const result = annonceIdSchema.safeParse({
+                id: "   "
+            });
+
+            expect(result.success).toBe(false);
+        });
+
+        /**
+         * Vérifie que les espaces inutiles autour
+         * de l'identifiant sont supprimés.
+         */
+        it("supprime les espaces autour de l'identifiant", () => {
+            const result = annonceIdSchema.safeParse({
+                id: "  demo-immo-annonce-12  "
+            });
+
+            expect(result.success).toBe(true);
+
+            if (result.success) {
+                expect(result.data.id).toBe("demo-immo-annonce-12");
+            }
+        });
 
 });

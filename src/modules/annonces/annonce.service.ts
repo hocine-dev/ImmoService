@@ -50,3 +50,20 @@ export function createAnnonceService<TAnnonce>(
         listAnnonces
     };
 }
+
+
+/**
+ * Récupère le détail d'une annonce publiée par son ID.
+ *
+ * Retourne l'annonce si elle existe et est publiée,
+ * sinon retourne null.
+ */
+export async function getAnnonceById<TAnnonce>(
+    repository: {
+        findPublishedById(id: string): Promise<TAnnonce | null>;
+    },
+    id: string
+) {
+    return repository.findPublishedById(id);
+}
+

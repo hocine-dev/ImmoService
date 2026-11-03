@@ -4,8 +4,76 @@ All URIs are relative to *http://localhost:3001*
 
 | Method | HTTP request | Description |
 |------------- | ------------- | -------------|
+| [**getAnnonceById**](AnnoncesApi.md#getannoncebyid) | **GET** /annonces/{id} | Consulter le détail d\&#39;une annonce publiée |
 | [**listAnnonces**](AnnoncesApi.md#listannonces) | **GET** /annonces | Lister les annonces publiées |
 
+
+
+## getAnnonceById
+
+> AnnonceDetail getAnnonceById(id)
+
+Consulter le détail d\&#39;une annonce publiée
+
+### Example
+
+```ts
+import {
+  Configuration,
+  AnnoncesApi,
+} from '';
+import type { GetAnnonceByIdRequest } from '';
+
+async function example() {
+  console.log("🚀 Testing  SDK...");
+  const api = new AnnoncesApi();
+
+  const body = {
+    // string | Identifiant de l\'annonce.
+    id: id_example,
+  } satisfies GetAnnonceByIdRequest;
+
+  try {
+    const data = await api.getAnnonceById(body);
+    console.log(data);
+  } catch (error) {
+    console.error(error);
+  }
+}
+
+// Run the test
+example().catch(console.error);
+```
+
+### Parameters
+
+
+| Name | Type | Description  | Notes |
+|------------- | ------------- | ------------- | -------------|
+| **id** | `string` | Identifiant de l\&#39;annonce. | [Defaults to `undefined`] |
+
+### Return type
+
+[**AnnonceDetail**](AnnonceDetail.md)
+
+### Authorization
+
+No authorization required
+
+### HTTP request headers
+
+- **Content-Type**: Not defined
+- **Accept**: `application/json`
+
+
+### HTTP response details
+| Status code | Description | Response headers |
+|-------------|-------------|------------------|
+| **200** | Détails de l\&#39;annonce publiée. |  -  |
+| **400** | Identifiant invalide. |  -  |
+| **404** | Annonce inexistante ou non publiée. |  -  |
+
+[[Back to top]](#) [[Back to API list]](../README.md#api-endpoints) [[Back to Model list]](../README.md#models) [[Back to README]](../README.md)
 
 
 ## listAnnonces

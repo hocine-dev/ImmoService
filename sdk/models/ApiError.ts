@@ -12,14 +12,14 @@
  * Do not edit the class manually.
  */
 
-import { mapValues } from '../runtime';
-import type { ApiErrorError } from './ApiErrorError';
+import { mapValues } from '../runtime.js';
+import type { ApiErrorError } from './ApiErrorError.js';
 import {
     ApiErrorErrorFromJSON,
     ApiErrorErrorFromJSONTyped,
     ApiErrorErrorToJSON,
     ApiErrorErrorToJSONTyped,
-} from './ApiErrorError';
+} from './ApiErrorError.js';
 
 /**
  * 

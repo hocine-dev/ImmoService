@@ -12,17 +12,29 @@
  * Do not edit the class manually.
  */
 
-import * as runtime from '../runtime';
+import * as runtime from '../runtime.js';
+import {
+    type AnnonceDetail,
+    AnnonceDetailFromJSON,
+    AnnonceDetailToJSON,
+} from '../models/AnnonceDetail.js';
 import {
     type ApiError,
     ApiErrorFromJSON,
     ApiErrorToJSON,
-} from '../models/ApiError';
+} from '../models/ApiError.js';
 import {
     type ListAnnonces200Response,
     ListAnnonces200ResponseFromJSON,
     ListAnnonces200ResponseToJSON,
-} from '../models/ListAnnonces200Response';
+} from '../models/ListAnnonces200Response.js';
+
+export interface GetAnnonceByIdRequest {
+    /**
+     * Identifiant de l'annonce.
+     */
+    id: string;
+}
 
 export interface ListAnnoncesRequest {
     /**
@@ -51,6 +63,51 @@ export interface ListAnnoncesRequest {
  * 
  */
 export class AnnoncesApi extends runtime.BaseAPI {
+
+    /**
+     * Creates request options for getAnnonceById without sending the request
+     */
+    async getAnnonceByIdRequestOpts(requestParameters: GetAnnonceByIdRequest): Promise<runtime.RequestOpts> {
+        if (requestParameters['id'] == null) {
+            throw new runtime.RequiredError(
+                'id',
+                'Required parameter "id" was null or undefined when calling getAnnonceById().'
+            );
+        }
+
+        const queryParameters: any = {};
+
+        const headerParameters: runtime.HTTPHeaders = {};
+
+
+        let urlPath = `/annonces/{id}`;
+        urlPath = urlPath.replace('{id}', encodeURIComponent(String(requestParameters['id'])));
+
+        return {
+            path: urlPath,
+            method: 'GET',
+            headers: headerParameters,
+            query: queryParameters,
+        };
+    }
+
+    /**
+     * Consulter le détail d\'une annonce publiée
+     */
+    async getAnnonceByIdRaw(requestParameters: GetAnnonceByIdRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<AnnonceDetail>> {
+        const requestOptions = await this.getAnnonceByIdRequestOpts(requestParameters);
+        const response = await this.request(requestOptions, initOverrides);
+
+        return new runtime.JSONApiResponse(response, (jsonValue) => AnnonceDetailFromJSON(jsonValue));
+    }
+
+    /**
+     * Consulter le détail d\'une annonce publiée
+     */
+    async getAnnonceById(requestParameters: GetAnnonceByIdRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<AnnonceDetail> {
+        const response = await this.getAnnonceByIdRaw(requestParameters, initOverrides);
+        return await response.value();
+    }
 
     /**
      * Creates request options for listAnnonces without sending the request

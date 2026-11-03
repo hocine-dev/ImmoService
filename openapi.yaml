@@ -1,0 +1,157 @@
+
+openapi: 3.1.0
+
+info:
+  title: ImmoService API
+  version: 1.0.0
+  description: API REST de gestion des annonces immobilières.
+
+servers:
+  - url: http://localhost:3001
+    description: Serveur local
+
+paths:
+  /annonces:
+    get:
+      security: []  # Route publique : aucun JWT nécessaire
+      tags:
+        - Annonces
+      summary: Lister les annonces publiées
+      description: >
+        Retourne les annonces publiées avec pagination
+        et filtres facultatifs. Cette route est publique.
+      operationId: listAnnonces
+
+      parameters:
+        - name: page
+          in: query
+          description: Numéro de la page (à partir de 1).
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+
+        - name: limit
+          in: query
+          description: Nombre d'annonces par page (maximum 100).
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 10
+
+        - name: ville
+          in: query
+          description: Filtrer les annonces par ville.
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 100
+
+        - name: type
+          in: query
+          description: Type de transaction immobilière.
+          schema:
+            type: string
+            enum: [VENTE, LOCATION]
+
+        - name: prixMax
+          in: query
+          description: Prix maximal des annonces.
+          schema:
+            type: number
+            minimum: 0
+
+      responses:
+        "200":
+          description: Liste paginée des annonces publiées.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, pagination]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/AnnonceResume"
+                  pagination:
+                    type: object
+                    required: [page, limit, total, pages]
+                    properties:
+                      page:
+                        type: integer
+                      limit:
+                        type: integer
+                      total:
+                        type: integer
+                      pages:
+                        type: integer
+
+        "400":
+          description: Paramètres de recherche invalides.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
+components:
+  schemas:
+    AnnonceResume:
+      type: object
+      required:
+        - id
+        - titre
+        - type
+        - typePropriete
+        - etat
+        - prix
+        - ville
+        - surface
+        - chambres
+        - createdAt
+      properties:
+        id:
+          type: string
+        titre:
+          type: string
+        type:
+          type: string
+          enum: [VENTE, LOCATION]
+        typePropriete:
+          type: string
+        etat:
+          type: string
+        prix:
+          type: string
+          description: Prix décimal sérialisé en chaîne.
+          examples: ["250000.00"]
+        ville:
+          type: string
+        surface:
+          type: [number, "null"]
+        chambres:
+          type: [integer, "null"]
+        createdAt:
+          type: string
+          format: date-time
+
+    ApiError:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message, details]
+          properties:
+            code:
+              type: string
+              example: VALIDATION_ERROR
+            message:
+              type: string
+            details:
+              type: object
+              additionalProperties:
+                type: array
+                items:
+                  type: string

@@ -5,8 +5,7 @@ import { AppError } from '../modules/user/user.service.js';
 const validate = (schema: ZodSchema) => (req: Request, res: Response, next: NextFunction) => {
   if (!schema) {
     console.error("Erreur middleware : Aucun schéma Zod fourni");
-    return next(new AppError(
-      500, 
+    return next(new AppError( 
       "INTERNAL_ERROR", 
       "Erreur de configuration de la validation sur le serveur"
     ));
@@ -34,7 +33,7 @@ const validate = (schema: ZodSchema) => (req: Request, res: Response, next: Next
 
     // On remonte l'erreur standardisée au middleware global via next()
     return next(new AppError(
-      400, 
+ 
       "VALIDATION_ERROR", 
       "Données invalides", 
       details

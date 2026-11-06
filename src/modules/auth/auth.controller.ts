@@ -12,7 +12,7 @@ export const authController = {
         data: result,
       });
     } catch (error) {
-      next(error);
+      res.json(error)
     }
   },
 };

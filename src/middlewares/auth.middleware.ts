@@ -21,13 +21,13 @@ const authMiddleware = (roles: Role[] = []) => {
     const authHeader = req.headers.authorization;
 
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      return next(new AppError(401, "UNAUTHORIZED", "Token manquant"));
+      return next(new AppError( "UNAUTHORIZED", "Token manquant"));
     }
 
     const token = authHeader.slice(7).trim();
 
     if (!token) {
-      return next(new AppError(401, "UNAUTHORIZED", "Token manquant"));
+      return next(new AppError( "UNAUTHORIZED", "Token manquant"));
     }
 
     try {
@@ -40,7 +40,7 @@ const authMiddleware = (roles: Role[] = []) => {
         roles.length > 0 &&
         (!decoded.role || !roles.includes(decoded.role))
       ) {
-        return next(new AppError(403, "FORBIDDEN", "Accès refusé"));
+        return next(new AppError( "FORBIDDEN", "Accès refusé"));
       }
 
       // Injection de l'utilisateur authentifié dans req.user
@@ -52,10 +52,10 @@ const authMiddleware = (roles: Role[] = []) => {
       next();
     } catch (err: any) {
       if (err.name === "TokenExpiredError") {
-        return next(new AppError(401, "UNAUTHORIZED", "Token expiré"));
+        return next(new AppError( "UNAUTHORIZED", "Token expiré"));
       }
 
-      return next(new AppError(401, "UNAUTHORIZED", "Token invalide"));
+      return next(new AppError( "UNAUTHORIZED", "Token invalide"));
     }
   };
 };

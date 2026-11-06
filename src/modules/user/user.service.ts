@@ -25,18 +25,15 @@ export type DataType = {
 
 // Classe d'erreur personnalisée pour l'API
 export class AppError extends Error {
-  status: number;
   code: "VALIDATION_ERROR" | "UNAUTHORIZED" | "FORBIDDEN" | "NOT_FOUND" | "CONFLICT" | "RATE_LIMIT_EXCEEDED" | "INTERNAL_ERROR" | "NOT_IMPLEMENTED" | "INVALID_CREDENTIALS";
   details: Record<string, string[]>;
 
   constructor(
-    status: number, 
     code: "VALIDATION_ERROR" | "UNAUTHORIZED" | "FORBIDDEN" | "NOT_FOUND" | "CONFLICT" | "RATE_LIMIT_EXCEEDED" | "INTERNAL_ERROR" | "NOT_IMPLEMENTED" | "INVALID_CREDENTIALS", 
     message: string, 
     details: Record<string, string[]> = {}
   ) {
     super(message);
-    this.status = status;
     this.code = code;
     this.details = details;
   }
@@ -46,7 +43,7 @@ export const userService = {
   // GET : Récupérer tous les utilisateurs
   async getAllUsers(currentUserRole:Role) {
     if (currentUserRole !== Role.ADMIN) {
-      throw new AppError(403, "FORBIDDEN", "Action non autorisée sur ce profil.");
+      throw new AppError("FORBIDDEN", "Action non autorisée sur ce profil.");
     }
     return await prisma.user.findMany({
       select: {
@@ -62,7 +59,7 @@ export const userService = {
   // GET : Récupérer un utilisateur par son ID
   async getUserById(id: string,currentUserId:string,currentUserRole:Role) {
     if ( currentUserRole !== Role.ADMIN && currentUserId !== id) {
-      throw new AppError(403, "FORBIDDEN", "Action non autorisée sur ce profil.");
+      throw new AppError("FORBIDDEN", "Action non autorisée sur ce profil.");
     }
     const user = await prisma.user.findUnique({
       where: { id },
@@ -73,7 +70,7 @@ export const userService = {
     });
 
     if (!user) {
-      throw new AppError(404, "NOT_FOUND", "Utilisateur introuvable");
+      throw new AppError( "NOT_FOUND", "Utilisateur introuvable");
     }
 
     const { passwordHash, ...userWithoutPassword } = user;
@@ -87,7 +84,7 @@ export const userService = {
     });
 
     if (existingUser) {
-      throw new AppError(409, "CONFLICT", "Cet email est déjà utilisé", {
+      throw new AppError( "CONFLICT", "Cet email est déjà utilisé", {
         email: ["Cet email est déjà associé à un autre compte."]
       });
     }
@@ -111,7 +108,7 @@ export const userService = {
   async updateUser(targetId: string, currentUserId: string, currentUserRole: Role, data: DataType) {
     // SÉCURITÉ IDOR : Seul un ADMIN ou le propriétaire du compte peut modifier ce profil
     if (currentUserRole !== Role.ADMIN && currentUserId !== targetId) {
-      throw new AppError(403, "FORBIDDEN", "Action non autorisée sur ce profil.");
+      throw new AppError( "FORBIDDEN", "Action non autorisée sur ce profil.");
     }
 
     // Vérifier l'existence de l'utilisateur ciblé
@@ -135,7 +132,7 @@ export const userService = {
   async deleteUser(targetId: string, currentUserId: string, currentUserRole: Role) {
     //  SÉCURITÉ IDOR : Seul un ADMIN ou le propriétaire peut supprimer le compte
     if (currentUserRole !== Role.ADMIN && currentUserId !== targetId) {
-      throw new AppError(403, "FORBIDDEN", "Action non autorisée.");
+      throw new AppError( "FORBIDDEN", "Action non autorisée.");
     }
 
     // Vérifier l'existence

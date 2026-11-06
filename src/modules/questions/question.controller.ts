@@ -6,14 +6,14 @@ export const questionController = {
   async create(req: Request, res: Response, next: NextFunction) {
     try {
       const auteurId = req.user?.id;
-
+       console.log(req.user) 
       if (!auteurId) {
         return res.status(401).json({ status: 'fail', code: 'UNAUTHORIZED', message: 'Utilisateur non authentifié' });
       }
 
       // req.validated contient les données nettoyées par le middleware Zod
       const question = await questionService.createQuestion({
-        ...req.validated,
+        ...req.body,
         auteurId,
       });
 

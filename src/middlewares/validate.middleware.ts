@@ -32,7 +32,7 @@ const validate = (schema: ZodSchema) => (req: Request, res: Response, next: Next
     }
 
     // On remonte l'erreur standardisée au middleware global via next()
-    return next(new AppError(
+    return res.json(new AppError(
  
       "VALIDATION_ERROR", 
       "Données invalides", 

@@ -10,6 +10,7 @@ import type { ErrorRequestHandler } from "express";
 import { apiError } from "./shared/api-error.js";
 import router from "./modules/user/user.route.js";
 import routerAuth from "./modules/auth/auth.route.js";
+import routerQuest from "./modules/questions/question.route.js";
 
 /**
  * Construit l'application Express.
@@ -32,6 +33,7 @@ export function createApp(prisma: PrismaClient) {
   app.use("/annonces", createAnnonceRouter(prisma));
   app.use("/users",router)
   app.use("/auth",routerAuth)
+  app.use("/questions",routerQuest)
 
   // Lecture de la documentation OpenAPI.
   const openapi = YAML.parse(

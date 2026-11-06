@@ -20,11 +20,6 @@ export const questionService = {
         annonceId: data.annonceId,
         auteurId: data.auteurId,
       },
-      include: {
-        auteur: {
-          select: { id: true, name: true, email: true },
-        },
-      },
     });
 
     return question;

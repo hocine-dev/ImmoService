@@ -24,7 +24,7 @@ export const authService = {
     // 3. Générer le Token JWT (expire en 1 jour par exemple)
     const jwtSecret = process.env.JWT_SECRET || 'fallback_secret';
     const token = jwt.sign(
-      { userId: user.id, role: user.role },
+      { id: user.id, role: user.role },
       jwtSecret,
       { expiresIn: '1d' }
     );

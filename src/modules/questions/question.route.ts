@@ -12,9 +12,9 @@ routerQuest.get('/annonce/:annonceId', questionController.getByAnnonce);
 
 // POST /api/questions - Poser une question (Privé - nécessite d'être connecté)
 routerQuest.post(
-  '/',
+  '/create',
   authMiddleware(),
-  validate(createQuestionSchema),
+  //validate(createQuestionSchema),
   questionController.create
 );
 

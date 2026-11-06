@@ -5,7 +5,7 @@ export const userController = {
   // GET : Récupérer tous les utilisateurs
   async getUsers(req: Request, res: Response, next: NextFunction) {
     try {
-      const currentUserRole = req?.user?.role || "ADMIN" ;  
+      const currentUserRole = req?.user?.role ;  
       const users = await userService.getAllUsers(currentUserRole);
       return res.status(200).json({ 
         success: true, 

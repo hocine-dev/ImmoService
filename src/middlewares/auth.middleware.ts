@@ -4,7 +4,7 @@ import { Request, Response, NextFunction } from 'express';
 import { AppError, Role } from "../modules/user/user.service.js";
 
 
-const SECRET = process.env.JWT_SECRET;
+const SECRET = process.env.JWT_SECRET || 'fallback_secret';
 
 if (!SECRET) {
   throw new Error("JWT_SECRET doit être défini dans le fichier .env");

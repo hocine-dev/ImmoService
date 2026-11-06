@@ -8,6 +8,8 @@ import swaggerUi from "swagger-ui-express";
 import YAML from "yaml";
 import type { ErrorRequestHandler } from "express";
 import { apiError } from "./shared/api-error.js";
+import router from "./modules/user/user.route.js";
+import routerAuth from "./modules/auth/auth.route.js";
 
 /**
  * Construit l'application Express.
@@ -28,6 +30,8 @@ export function createApp(prisma: PrismaClient) {
 
   // Module des annonces
   app.use("/annonces", createAnnonceRouter(prisma));
+  app.use("/users",router)
+  app.use("/auth",routerAuth)
 
   // Lecture de la documentation OpenAPI.
   const openapi = YAML.parse(
@@ -36,7 +40,7 @@ export function createApp(prisma: PrismaClient) {
 
   // Affichage de la documentation Swagger sur /docs.
   app.use("/docs", swaggerUi.serve, swaggerUi.setup(openapi));
-
+  
   /**
  * Gère les erreurs techniques non prises en charge
  * par les contrôleurs et retourne une réponse JSON uniforme.

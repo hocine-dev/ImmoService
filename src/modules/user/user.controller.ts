@@ -12,7 +12,7 @@ export const userController = {
         data: users 
       });
     } catch (error) {
-      next(error);
+      res.json(error);
     }
   },
 
@@ -28,7 +28,7 @@ export const userController = {
         data: user 
       });
     } catch (error) {
-      next(error);
+      res.json(error);
     }
   },
 
@@ -42,7 +42,7 @@ export const userController = {
         data: newUser 
       });
     } catch (error) {
-      next(error);
+      res.json(error);
     }
   },
 
@@ -51,7 +51,7 @@ export const userController = {
     try {
       const targetId = req.validated.params.id;
       
-      // 🛡️ Récupération des infos de l'utilisateur authentifié (provenant du middleware JWT)
+      // Récupération des infos de l'utilisateur authentifié (provenant du middleware JWT)
       const currentUserId = req.user!.id;
       const currentUserRole = req.user!.role;
 
@@ -68,7 +68,7 @@ export const userController = {
         data: updatedUser 
       });
     } catch (error) {
-      next(error);
+      res.json(error);
     }
   },
 
@@ -87,7 +87,7 @@ export const userController = {
         message: "Utilisateur supprimé avec succès" 
       });
     } catch (error) {
-      next(error);
+      res.json(error);
     }
   },
 };

@@ -3,12 +3,14 @@ import { Router } from "express";
 import type { RequestHandler } from "express";
 import type { PrismaClient } from "../../generated/prisma/client.js";
 
-import { annonceQuerySchema, annonceIdSchema } from "./annonce.schema.js";
-import { createAnnonceController, createAnnonceDetailController } from "./annonce.controller.js";
-import { createAnnonceService, getAnnonceById } from "./annonce.service.js";
+import { annonceQuerySchema, annonceIdSchema, createAnnonceSchema } from "./annonce.schema.js";
+import { createAnnonceController, createAnnonceDetailController, createAnnoncePostController } from "./annonce.controller.js";
+import { createAnnonceService, getAnnonceById, createAnnonce } from "./annonce.service.js";
 import { createAnnonceRepository } from "./annonce.repository.js";
 
 import { apiError } from "../../shared/api-error.js";
+import { Role } from "../user/user.service.js";
+import authMiddleware from "../../middlewares/auth.middleware.js";
 
 /**
  * Middleware de validation des paramètres.
@@ -77,6 +79,39 @@ const validateAnnonceId: RequestHandler = (req, res, next) => {
 };
 
 
+
+/**
+ * Valide les données reçues pour POST /annonces.
+ * Les champs inconnus ou invalides sont refusés.
+ */
+const validateCreateAnnonce: RequestHandler = (req, res, next) => {
+    const result = createAnnonceSchema.safeParse(req.body);
+
+    if (!result.success) {
+        const details: Record<string, string[]> = {};
+
+        for (const issue of result.error.issues) {
+            const field = String(issue.path[0] ?? "body");
+            (details[field] ??= []).push(issue.message);
+        }
+
+        res.status(400).json(
+            apiError(
+                "VALIDATION_ERROR",
+                "Données de l'annonce invalides",
+                details
+            )
+        );
+        return;
+    }
+
+    // Données validées transmises au Controller
+    res.locals.createAnnonceInput = result.data;
+    next();
+};
+
+
+
 /**
  * Fabrique du routeur des annonces.
  */
@@ -112,6 +147,19 @@ export function createAnnonceRouter(prisma: PrismaClient) {
         "/:id",
         validateAnnonceId,
         detailController.detail
+    );
+
+    // Controller de création : réutilise le Repository existant.
+    const postController = createAnnoncePostController(
+        (input, auteurId) => createAnnonce(repository, input, auteurId)
+    );
+
+    // POST /annonces - Création d'une annonce par un agent
+    router.post(
+        "/",
+        authMiddleware([Role.AGENT, Role.ADMIN]),
+        validateCreateAnnonce,
+        postController.create
     );
 
 

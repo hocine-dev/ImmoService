@@ -1,3 +1,4 @@
+import { createAnnonce } from "../../../src/modules/annonces/annonce.service.js";
 
 import { describe, it, expect, vi } from "vitest";
 
@@ -113,4 +114,49 @@ describe("GET /annonces - Service", () => {
         });
     });
 
+});
+/**
+ * Données valides utilisées pour vérifier que le service transmet
+ * la demande de création sans la modifier.
+ */
+const postAnnonceValide = {
+  titre: "Appartement T3",
+  description: "Appartement avec balcon",
+  type: "VENTE",
+  typePropriete: "APPARTEMENT",
+  prix: "185000.00",
+  ville: "Le Havre",
+  surface: 75,
+  chambres: 2,
+} as const;
+
+describe("POST /annonces - service", () => {
+  /**
+   * Vérifie que le service délègue la création au Repository
+   * avec les données de l'annonce et l'identifiant de son auteur,
+   * puis retourne l'annonce créée.
+   */
+  it("transmet les données et l'auteur au repository", async () => {
+    const annonce = { id: "annonce-1", statut: "BROUILLON" };
+
+    // Faux Repository : le test reste isolé de la base de données.
+    const repository = {
+      createAnnonce: vi.fn().mockResolvedValue(annonce)
+    };
+
+    const resultat = await createAnnonce(
+      repository,
+      postAnnonceValide,
+      "agent-1"
+    );
+
+    // Le service doit transmettre exactement les données reçues.
+    expect(repository.createAnnonce).toHaveBeenCalledWith(
+      postAnnonceValide,
+      "agent-1"
+    );
+
+    // La réponse du Repository est propagée au code appelant.
+    expect(resultat).toEqual(annonce);
+  });
 });

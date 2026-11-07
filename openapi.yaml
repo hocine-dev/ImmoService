@@ -232,12 +232,12 @@ components:
           minLength: 1
         surface:
           type: integer
-          minimum: 1
-          maximum: 2147483647
+          minimum: 9
+          maximum: 2000
         chambres:
           type: integer
           minimum: 0
-          maximum: 2147483647
+          maximum: 20
         etat:
           type: string
           enum: [DISPONIBLE, LOUE, VENDU]

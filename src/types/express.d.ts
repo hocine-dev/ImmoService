@@ -1,4 +1,4 @@
-import { Role } from '../services/user.service.js';
+import { Role } from '../modules/user/user.service.js';
 
 declare global {
   namespace Express {

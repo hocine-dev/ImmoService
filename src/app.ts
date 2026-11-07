@@ -8,9 +8,10 @@ import swaggerUi from "swagger-ui-express";
 import YAML from "yaml";
 import type { ErrorRequestHandler } from "express";
 import { apiError } from "./shared/api-error.js";
-import router from "./modules/user/user.route.js";
-import routerAuth from "./modules/auth/auth.route.js";
-import routerQuest from "./modules/questions/question.route.js";
+import rateLimitMiddleware from "./middlewares/rateLimit.middleware.js";
+import { createUserRouter } from "./modules/user/user.route.js";
+import { createAuthRouter } from "./modules/auth/auth.route.js";
+import { createQuestionRouter } from "./modules/questions/question.route.js";
 
 /**
  * Construit l'application Express.
@@ -30,10 +31,17 @@ export function createApp(prisma: PrismaClient) {
   });
 
   // Module des annonces
+  // Protection générale de l'API contre les abus.
+  app.use(
+    ["/annonces", "/users", "/auth", "/questions"],
+    rateLimitMiddleware.generalLimiter,
+    rateLimitMiddleware.speedLimiter
+  );
+
   app.use("/annonces", createAnnonceRouter(prisma));
-  app.use("/users",router)
-  app.use("/auth",routerAuth)
-  app.use("/questions",routerQuest)
+  app.use("/users", createUserRouter(prisma));
+  app.use("/auth", createAuthRouter(prisma));
+  app.use("/questions", createQuestionRouter(prisma));
 
   // Lecture de la documentation OpenAPI.
   const openapi = YAML.parse(
@@ -42,7 +50,7 @@ export function createApp(prisma: PrismaClient) {
 
   // Affichage de la documentation Swagger sur /docs.
   app.use("/docs", swaggerUi.serve, swaggerUi.setup(openapi));
-  
+
   /**
  * Gère les erreurs techniques non prises en charge
  * par les contrôleurs et retourne une réponse JSON uniforme.

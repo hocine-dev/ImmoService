@@ -1,10 +1,13 @@
 import { Router } from 'express';
 import validate from '../../middlewares/validate.middleware.js';
 import { loginSchema } from './auth.schema.js';
-import { authController } from './auth.controller.js';
+import { createAuthController } from "./auth.controller.js";
+import type { PrismaClient } from "../../generated/prisma/client.js";
 import rateLimitMiddleware from '../../middlewares/rateLimit.middleware.js';
 
-const routerAuth = Router();
+export function createAuthRouter(prisma: PrismaClient) {
+  const routerAuth = Router();
+  const authController = createAuthController(prisma);
 
 // POST /api/auth/login
 routerAuth.post(
@@ -14,4 +17,5 @@ routerAuth.post(
   authController.login                  
 );
 
-export default routerAuth;
+return routerAuth;
+}

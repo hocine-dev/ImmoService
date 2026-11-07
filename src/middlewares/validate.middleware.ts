@@ -1,48 +1,48 @@
-import { Request, Response, NextFunction } from 'express';
-import { ZodSchema } from 'zod';
-import { AppError } from '../modules/user/user.service.js';
 
-const validate = (schema: ZodSchema) => (req: Request, res: Response, next: NextFunction) => {
-  if (!schema) {
-    console.error("Erreur middleware : Aucun schéma Zod fourni");
-    return next(new AppError( 
-      "INTERNAL_ERROR", 
-      "Erreur de configuration de la validation sur le serveur"
-    ));
-  }
-  
-  const result = schema.safeParse({
-    body: req.body ?? {},
-    params: req.params ?? {},
-    query: req.query ?? {},
-  });
+import type { Request, Response, NextFunction } from "express";
+import type { ZodSchema } from "zod";
+import { apiError } from "../shared/api-error.js";
 
-  if (!result.success) {
-    // Transformation des erreurs Zod en Record<string, string[]> (details)
-    const details: Record<string, string[]> = {};
+/**
+ * Validation commune des requêtes avec Zod.
+ * Utilise le même format d'erreur que le module annonces
+ * pour garantir un contrat HTTP unique dans ImmoService.
+ */
+const validate = (schema: ZodSchema) =>
+  (req: Request, res: Response, next: NextFunction) => {
 
-    for (const issue of result.error.issues) {
-      // On enlève le premier niveau ("body", "params" ou "query") pour cibler directement le champ
-      const field = issue.path.slice(1).join(".") || issue.path.join(".");
-      
-      if (!details[field]) {
-        details[field] = [];
-      }
-      details[field].push(issue.message);
+    if (!schema) {
+      return next(new Error("Schéma de validation manquant"));
     }
 
-    // On remonte l'erreur standardisée au middleware global via next()
-    return res.json(new AppError(
- 
-      "VALIDATION_ERROR", 
-      "Données invalides", 
-      details
-    ));
-  }
+    const result = schema.safeParse({
+      body: req.body ?? {},
+      params: req.params ?? {},
+      query: req.query ?? {}
+    });
 
-  // Stockage des données validées
-  req.validated = result.data;
-  next();
-};
+    if (!result.success) {
+      const details: Record<string, string[]> = {};
+
+      for (const issue of result.error.issues) {
+        const field =
+          issue.path.slice(1).join(".") ||
+          issue.path.join(".");
+
+        (details[field] ??= []).push(issue.message);
+      }
+
+      return res.status(400).json(
+        apiError(
+          "VALIDATION_ERROR",
+          "Données invalides",
+          details
+        )
+      );
+    }
+
+    req.validated = result.data;
+    next();
+  };
 
 export default validate;

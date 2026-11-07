@@ -8,6 +8,10 @@ import swaggerUi from "swagger-ui-express";
 import YAML from "yaml";
 import type { ErrorRequestHandler } from "express";
 import { apiError } from "./shared/api-error.js";
+import rateLimitMiddleware from "./middlewares/rateLimit.middleware.js";
+import { createUserRouter } from "./modules/user/user.route.js";
+import { createAuthRouter } from "./modules/auth/auth.route.js";
+import { createQuestionRouter } from "./modules/questions/question.route.js";
 
 /**
  * Construit l'application Express.
@@ -27,7 +31,17 @@ export function createApp(prisma: PrismaClient) {
   });
 
   // Module des annonces
+  // Protection générale de l'API contre les abus.
+  app.use(
+    ["/annonces", "/users", "/auth", "/questions"],
+    rateLimitMiddleware.generalLimiter,
+    rateLimitMiddleware.speedLimiter
+  );
+
   app.use("/annonces", createAnnonceRouter(prisma));
+  app.use("/users", createUserRouter(prisma));
+  app.use("/auth", createAuthRouter(prisma));
+  app.use("/questions", createQuestionRouter(prisma));
 
   // Lecture de la documentation OpenAPI.
   const openapi = YAML.parse(

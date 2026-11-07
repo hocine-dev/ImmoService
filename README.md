@@ -62,3 +62,17 @@ Vitest exige une `DATABASE_URL_TEST` distincte et utilise cette connexion pour l
 Dépôt : [web-services](https://www-apps.univ-lehavre.fr/forge/hh243545/web-services). La branche commune est `main` ; le développement des annonces se fait sur `feat/annonces`, avec intégration par merge request.
 
 `.env`, `node_modules/`, `dist/` et le client Prisma généré sont exclus de Git. Seul `.env.example`, avec ses valeurs fictives, doit être versionné.
+
+## Configuration JWT
+
+Le serveur nécessite la variable `JWT_SECRET` dans le fichier `.env`.
+
+Générer un secret avec :
+
+    openssl rand -hex 32
+
+Copier la valeur générée dans `.env` :
+
+    JWT_SECRET=valeur_generee
+
+Ne jamais commiter le vrai secret.

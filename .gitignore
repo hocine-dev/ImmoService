@@ -7,3 +7,6 @@ src/generated/
 *.log
 *.tsbuildinfo
 .DS_Store
+
+# SDK OpenAPI généré automatiquement
+/sdk/

@@ -1,3 +1,4 @@
+import { createAnnonceSchema } from "../../../src/modules/annonces/annonce.schema.js";
 
 import { describe, it, expect } from "vitest";
 
@@ -146,4 +147,64 @@ describe("GET /annonces/:id - Validation de l'identifiant", () => {
             }
         });
 
+});
+
+
+/**
+ * Données minimales représentant une annonce conforme au contrat de création.
+ * Les tests suivants réutilisent cette base pour ne modifier qu'un champ à la fois.
+ */
+const postAnnonceValide = {
+  titre: "Appartement T3",
+  description: "Appartement avec balcon",
+  type: "VENTE",
+  typePropriete: "APPARTEMENT",
+  prix: "185000.00",
+  ville: "Le Havre",
+  surface: 75,
+  chambres: 2,
+} as const;
+
+describe("POST /annonces - validation", () => {
+  /**
+   * Vérifie que le schéma accepte une annonce complète
+   * lorsque tous les champs respectent les règles métier.
+   */
+  it("accepte une annonce valide", () => {
+    expect(createAnnonceSchema.safeParse(postAnnonceValide).success).toBe(true);
+  });
+
+  /**
+   * Vérifie les bornes métier appliquées à la surface et au nombre de chambres.
+   * Chaque variation doit être rejetée sans invalider les autres champs du test.
+   */
+  it("refuse les valeurs métier incohérentes", () => {
+    for (const changement of [
+      { surface: 8 },
+      { surface: 2001 },
+      { chambres: 21 },
+    ]) {
+      expect(createAnnonceSchema.safeParse({
+        ...postAnnonceValide,
+        ...changement
+      }).success).toBe(false);
+    }
+  });
+
+  /**
+   * Vérifie qu'un prix négatif est refusé et que les champs gérés par le serveur
+   * ne peuvent pas être imposés par le client lors de la création.
+   */
+  it("refuse un prix invalide et les champs protégés", () => {
+    expect(createAnnonceSchema.safeParse({
+      ...postAnnonceValide,
+      prix: "-100"
+    }).success).toBe(false);
+
+    expect(createAnnonceSchema.safeParse({
+      ...postAnnonceValide,
+      auteurId: "autre-agent",
+      statut: "PUBLIE"
+    }).success).toBe(false);
+  });
 });

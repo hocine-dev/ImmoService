@@ -104,8 +104,8 @@ export const createAnnonceSchema = z.object({
 
   ville: z.string().trim().min(1).max(100),
 
-  surface: z.number().int().positive().max(2147483647),
-  chambres: z.number().int().nonnegative().max(2147483647),
+  surface: z.number().int().min(9).max(2000),
+  chambres: z.number().int().min(0).max(20),
 
   // Champs facultatifs avec valeurs par défaut dans Prisma.
   etat: z.enum(["DISPONIBLE", "LOUE", "VENDU"]).optional(),

@@ -4,6 +4,8 @@ import type { PrismaClient } from "../../generated/prisma/client.js";
 
 import type { AnnonceQuery } from "./annonce.schema.js";
 
+import type { CreateAnnonceInput } from "./annonce.schema.js";
+
 /**
  * Repository des annonces.
  * Responsable exclusivement de l'accès aux données.
@@ -124,8 +126,55 @@ export function createAnnonceRepository(
         };
     }
 
+
+    /**
+     * Crée une annonce pour un agent authentifié.
+     * Toute nouvelle annonce est enregistrée en brouillon.
+     */
+    async function createAnnonce(
+        input: CreateAnnonceInput,
+        auteurId: string
+    ) {
+        const annonce = await prisma.annonce.create({
+            data: {
+                titre: input.titre,
+                description: input.description,
+                type: input.type,
+                typePropriete: input.typePropriete,
+                prix: new Prisma.Decimal(input.prix),
+                ville: input.ville,
+                surface: input.surface,
+                chambres: input.chambres,
+
+                // Champs facultatifs
+                etat: input.etat,
+                dateDisponibilite: input.dateDisponibilite
+                    ? new Date(input.dateDisponibilite)
+                    : undefined,
+
+                // Champs contrôlés par le serveur
+                statut: "BROUILLON",
+                auteurId
+            },
+            include: {
+                photos: true
+            }
+        });
+
+        // Conversion des types Prisma pour la réponse JSON
+        return {
+            ...annonce,
+            prix: annonce.prix.toFixed(2),
+            dateDisponibilite: annonce.dateDisponibilite?.toISOString() ?? null,
+            createdAt: annonce.createdAt.toISOString(),
+            updatedAt: annonce.updatedAt.toISOString()
+        };
+    }
+
+
     return {
         findPublishedPage,
-        findPublishedById
+        findPublishedById,
+        createAnnonce
     };
 }

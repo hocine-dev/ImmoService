@@ -1,5 +1,5 @@
 
-import type { AnnonceQuery } from "./annonce.schema.js";
+import type { AnnonceQuery, CreateAnnonceInput } from "./annonce.schema.js";
 
 /**
  * Contrat attendu du Repository.
@@ -65,5 +65,24 @@ export async function getAnnonceById<TAnnonce>(
     id: string
 ) {
     return repository.findPublishedById(id);
+}
+
+/**
+ * Crée une annonce pour un agent authentifié.
+ *
+ * Les données ont déjà été validées par Zod.
+ * L'identifiant de l'agent proviendra du JWT vérifié.
+ */
+export async function createAnnonce<TAnnonce>(
+    repository: {
+        createAnnonce(
+            input: CreateAnnonceInput,
+            auteurId: string
+        ): Promise<TAnnonce>;
+    },
+    input: CreateAnnonceInput,
+    auteurId: string
+) {
+    return repository.createAnnonce(input, auteurId);
 }
 

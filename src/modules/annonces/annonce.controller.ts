@@ -1,6 +1,6 @@
 
 import type { RequestHandler } from "express";
-import type { AnnonceQuery } from "./annonce.schema.js";
+import type { AnnonceQuery, CreateAnnonceInput } from "./annonce.schema.js";
 import { apiError } from "../../shared/api-error.js";
 
 /**
@@ -95,3 +95,58 @@ export function createAnnonceDetailController<T>(
 
     return { detail };
 }
+
+
+/**
+ * Contrôleur de POST /annonces.
+ * Permet à un agent authentifié de créer une annonce.
+ */
+export function createAnnoncePostController<T>(
+    createAnnonce: (
+        input: CreateAnnonceInput,
+        auteurId: string
+    ) => Promise<T>
+) {
+    const create: RequestHandler = async (_req, res, next) => {
+        try {
+            // Utilisateur fourni par le middleware d'authentification
+            const user = _req.user;
+
+            // Aucun utilisateur authentifié
+            if (!user?.id) {
+                res.status(401).json(
+                    apiError("UNAUTHORIZED", "Authentification requise")
+                );
+                return;
+            }
+
+            // Seuls les agents peuvent créer des annonces
+            if (user.role !== "AGENT" && user.role !== "ADMIN") {
+                res.status(403).json(
+                    apiError("FORBIDDEN", "Accès réservé aux agents et administrateurs")
+                );
+                return;
+            }
+
+            // Données préalablement validées par Zod
+            const input = res.locals.createAnnonceInput as
+                CreateAnnonceInput | undefined;
+
+            if (!input) {
+                throw new Error("Validation de l'annonce non exécutée");
+            }
+
+            // Création avec l'identifiant de l'agent authentifié
+            const annonce = await createAnnonce(input, user.id);
+
+            // Annonce créée avec succès
+            res.status(201).json(annonce);
+
+        } catch (error) {
+            next(error);
+        }
+    };
+
+    return { create };
+}
+

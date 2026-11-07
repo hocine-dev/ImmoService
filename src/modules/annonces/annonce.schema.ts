@@ -75,8 +75,51 @@ export const annonceIdSchema = z.object({
 
 
 
+/**
+ * Validation des données reçues lors de la création d'une annonce.
+ * POST /annonces
+ */
+export const createAnnonceSchema = z.object({
+  titre: z.string().trim().min(1),
+  description: z.string().trim().min(1),
+
+  type: z.enum(["VENTE", "LOCATION"]),
+
+  typePropriete: z.enum([
+    "APPARTEMENT",
+    "MAISON",
+    "VILLA",
+    "STUDIO",
+    "LOFT"
+  ]),
+
+  // Prix positif, avec 2 décimales maximum.
+  // Une chaîne évite les imprécisions des nombres flottants.
+  prix: z.string()
+    .regex(
+      /^(0|[1-9]\d{0,9})(\.\d{1,2})?$/,
+      "Prix invalide (2 décimales maximum)"
+    )
+    .refine(prix => Number(prix) > 0, "Le prix doit être positif"),
+
+  ville: z.string().trim().min(1).max(100),
+
+  surface: z.number().int().positive().max(2147483647),
+  chambres: z.number().int().nonnegative().max(2147483647),
+
+  // Champs facultatifs avec valeurs par défaut dans Prisma.
+  etat: z.enum(["DISPONIBLE", "LOUE", "VENDU"]).optional(),
+  dateDisponibilite: z.string().datetime({ offset: true }).optional()
+
+}).strict();
+
+
+
 // Dérive le type TypeScript directement du schéma afin que le code métier
 // reste synchronisé avec les données réellement validées.
 export type AnnonceQuery = z.infer<typeof annonceQuerySchema>;
 
 export type AnnonceIdParams = z.infer<typeof annonceIdSchema>;
+
+export type CreateAnnonceInput = z.infer<typeof createAnnonceSchema>;
+

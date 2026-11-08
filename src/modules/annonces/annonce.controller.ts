@@ -231,3 +231,74 @@ export function createAnnoncePatchController<T>(
 
     return { update };
 }
+
+
+/**
+ * Controller de DELETE /annonces/:id.
+ *
+ * Supprime une annonce si l'utilisateur possède
+ * les droits nécessaires.
+ *
+ * La vérification du propriétaire sera effectuée
+ * par le Repository.
+ */
+export function createAnnonceDeleteController(
+    deleteAnnonce: (
+        id: string,
+        utilisateurId: string,
+        isAdmin: boolean
+    ) => Promise<boolean>
+) {
+    const remove: RequestHandler = async (req, res, next) => {
+        try {
+            // Utilisateur authentifié par le JWT.
+            const user = req.user;
+
+            if (!user?.id) {
+                res.status(401).json(
+                    apiError("UNAUTHORIZED", "Authentification requise")
+                );
+                return;
+            }
+
+            // Seuls AGENT et ADMIN peuvent supprimer.
+            if (user.role !== "AGENT" && user.role !== "ADMIN") {
+                res.status(403).json(
+                    apiError("FORBIDDEN", "Accès interdit")
+                );
+                return;
+            }
+
+            // Identifiant validé par le middleware Zod.
+            const id = req.validated?.params?.id;
+            if (!id) {
+                throw new Error(
+                    "Validation de l'identifiant non exécutée"
+                );
+            }
+
+            // Demander la suppression au Service.
+            const deleted = await deleteAnnonce(
+                id,
+                user.id,
+                user.role === "ADMIN"
+            );
+
+            // Annonce inexistante ou inaccessible.
+            if (!deleted) {
+                res.status(404).json(
+                    apiError("NOT_FOUND", "Annonce introuvable")
+                );
+                return;
+            }
+
+            // Suppression réussie : aucun corps JSON.
+            res.status(204).send();
+
+        } catch (error) {
+            next(error);
+        }
+    };
+
+    return { remove };
+}

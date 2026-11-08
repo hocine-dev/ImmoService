@@ -254,11 +254,44 @@ export function createAnnonceRepository(
     }
 
 
+    /**
+     * Supprime une annonce si l'utilisateur est autorisé.
+     *
+     * Un AGENT peut supprimer uniquement ses annonces.
+     * Un ADMIN peut supprimer toutes les annonces.
+     *
+     * La vérification du propriétaire est effectuée
+     * directement dans la requête SQL via Prisma.
+     */
+    async function deleteAnnonce(
+        id: string,
+        utilisateurId: string,
+        isAdmin: boolean
+    ): Promise<boolean> {
+
+        const result = await prisma.annonce.deleteMany({
+            where: {
+                id,
+
+                // Pour un agent, imposer son identifiant.
+                // Pour un administrateur, ne pas filtrer
+                // sur le propriétaire.
+                ...(isAdmin ? {} : { auteurId: utilisateurId })
+            }
+        });
+
+        // count = 1 : annonce supprimée.
+        // count = 0 : inexistante ou accès interdit.
+        return result.count > 0;
+    }
+
+
 
     return {
         findPublishedPage,
         findPublishedById,
         createAnnonce,
-        updateAnnonce
+        updateAnnonce,
+        deleteAnnonce
     };
 }

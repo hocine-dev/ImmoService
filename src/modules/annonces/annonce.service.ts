@@ -121,3 +121,34 @@ export async function updateAnnonce<TAnnonce>(
         isAdmin
     );
 }
+
+
+/**
+ * Supprime une annonce si l'utilisateur est autorisé.
+ *
+ * La vérification du propriétaire est effectuée
+ * par le Repository directement dans PostgreSQL.
+ *
+ * Retourne :
+ * - true  : suppression réussie
+ * - false : annonce inexistante ou inaccessible
+ */
+export async function deleteAnnonce(
+    repository: {
+        deleteAnnonce(
+            id: string,
+            utilisateurId: string,
+            isAdmin: boolean
+        ): Promise<boolean>;
+    },
+    id: string,
+    utilisateurId: string,
+    isAdmin: boolean
+): Promise<boolean> {
+
+    return repository.deleteAnnonce(
+        id,
+        utilisateurId,
+        isAdmin
+    );
+}

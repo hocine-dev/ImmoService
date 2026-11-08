@@ -256,6 +256,64 @@ paths:
               schema:
                 $ref: "#/components/schemas/ApiError"
 
+    delete:
+      tags:
+        - Annonces
+      summary: Supprimer une annonce
+      description: >
+        Un agent peut supprimer uniquement ses propres annonces.
+        Un administrateur peut supprimer toutes les annonces.
+        La suppression est définitive et entraîne également
+        la suppression des photos, questions, réponses et favoris
+        associés, conformément aux relations Prisma.
+      operationId: deleteAnnonce
+
+      # Authentification JWT obligatoire.
+      security:
+        - bearerAuth: []
+
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Identifiant de l'annonce à supprimer.
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 100
+
+      responses:
+        "204":
+          description: Annonce supprimée avec succès.
+
+        "400":
+          description: Identifiant invalide.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
+        "401":
+          description: Authentification requise.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
+        "403":
+          description: Rôle insuffisant.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
+        "404":
+          description: Annonce inexistante ou inaccessible à cet agent.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
 components:
   securitySchemes:
     bearerAuth:

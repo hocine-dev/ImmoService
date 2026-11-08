@@ -15,7 +15,8 @@ import {
     createAnnonceController,
     createAnnonceDetailController,
     createAnnoncePostController,
-    createAnnoncePatchController
+    createAnnoncePatchController,
+    createAnnonceDeleteController
 } from "./annonce.controller.js";
 
 // Services existants
@@ -23,7 +24,8 @@ import {
     createAnnonceService,
     getAnnonceById,
     createAnnonce,
-    updateAnnonce
+    updateAnnonce,
+    deleteAnnonce
 } from "./annonce.service.js";
 
 // Repository existant
@@ -33,6 +35,7 @@ import { createAnnonceRepository } from "./annonce.repository.js";
 import validateMiddleware from "../../middlewares/validate.middleware.js";
 import authMiddleware from "../../middlewares/auth.middleware.js";
 import { Role } from "../user/user.service.js";
+import validate from "../../middlewares/validate.middleware.js";
 
 /**
  * Construit le routeur du module annonces.
@@ -127,6 +130,37 @@ export function createAnnonceRouter(prisma: PrismaClient) {
         validateMiddleware(updateAnnonceRequestSchema),
         patchController.update
     );
+
+
+    /**
+     * DELETE /annonces/:id
+     *
+     * Ordre des middlewares :
+     * 1. Vérifier le JWT et le rôle AGENT ou ADMIN.
+     * 2. Valider l'identifiant avec Zod.
+     * 3. Exécuter le Controller.
+     *
+     * Le Repository vérifie également que l'agent
+     * est propriétaire de l'annonce.
+     */
+
+    const deleteController = createAnnonceDeleteController(
+        (id, utilisateurId, isAdmin) =>
+            deleteAnnonce(
+                repository,
+                id,
+                utilisateurId,
+                isAdmin
+            )
+    );
+
+    router.delete(
+        "/:id",
+        authMiddleware([Role.AGENT, Role.ADMIN]),
+        validate(detailAnnonceRequestSchema),
+        deleteController.remove
+    );
+
 
     return router;
 }

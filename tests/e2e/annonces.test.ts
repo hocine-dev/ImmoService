@@ -67,9 +67,9 @@ describe("GET /annonces - Tests E2E", () => {
             limit: 10,
             total: 12,
             pages: 2
-            });
-
         });
+
+    });
 
 
     /**
@@ -546,4 +546,182 @@ describe("PATCH /annonces/:id - Tests E2E", () => {
             response: { status: 400 }
         });
     });
+});
+
+
+
+/**
+ * Tests E2E de DELETE /annonces/:id.
+ *
+ * On crée des annonces spécifiques aux tests
+ * afin de ne jamais supprimer les données du seed.
+ */
+describe("DELETE /annonces/:id - Tests E2E", () => {
+
+    it("autorise un agent à supprimer sa propre annonce", async () => {
+        const token = await getAgentToken();
+
+        // Créer une annonce appartenant à l'agent.
+        const annonce = await sdkPost(token).createAnnonce({
+            createAnnonceInput: {
+                ...annonceValide,
+                titre: `Annonce DELETE ${Date.now()}`
+            }
+        });
+
+        // Supprimer cette annonce.
+        const response = await fetch(
+            `${baseUrl}/annonces/${annonce.id}`,
+            {
+                method: "DELETE",
+                headers: {
+                    Authorization: `Bearer ${token}`
+                }
+            }
+        );
+
+        // 204 : suppression réussie, sans corps JSON.
+        expect(response.status).toBe(204);
+        expect(await response.text()).toBe("");
+
+        // Une deuxième suppression doit échouer :
+        // l'annonce n'existe plus.
+        const secondeSuppression = await fetch(
+            `${baseUrl}/annonces/${annonce.id}`,
+            {
+                method: "DELETE",
+                headers: {
+                    Authorization: `Bearer ${token}`
+                }
+            }
+        );
+
+        expect(secondeSuppression.status).toBe(404);
+    });
+
+    it("empêche un agent de supprimer l'annonce d'un autre (IDOR)", async () => {
+        // Créer une annonce avec l'agent 1.
+        const tokenAgent1 = await getAgentToken();
+
+        const annonce = await sdkPost(tokenAgent1).createAnnonce({
+            createAnnonceInput: {
+                ...annonceValide,
+                titre: `Annonce protégée ${Date.now()}`
+            }
+        });
+
+        // Connexion de l'agent 2.
+        const tokenAgent2 = await getToken(
+            process.env.SEED_AGENT_2_EMAIL,
+            process.env.SEED_AGENT_2_PASSWORD
+        );
+
+        // L'agent 2 essaie de supprimer l'annonce.
+        const tentative = await fetch(
+            `${baseUrl}/annonces/${annonce.id}`,
+            {
+                method: "DELETE",
+                headers: {
+                    Authorization: `Bearer ${tokenAgent2}`
+                }
+            }
+        );
+
+        // L'accès est refusé sans révéler le propriétaire.
+        expect(tentative.status).toBe(404);
+
+        // L'agent 1 doit encore pouvoir supprimer
+        // son annonce : la tentative IDOR n'a rien effacé.
+        const suppressionLegitime = await fetch(
+            `${baseUrl}/annonces/${annonce.id}`,
+            {
+                method: "DELETE",
+                headers: {
+                    Authorization: `Bearer ${tokenAgent1}`
+                }
+            }
+        );
+
+        expect(suppressionLegitime.status).toBe(204);
+    });
+
+    it("autorise un administrateur à supprimer une annonce", async () => {
+        const tokenAgent = await getAgentToken();
+
+        // Créer une annonce appartenant à l'agent.
+        const annonce = await sdkPost(tokenAgent).createAnnonce({
+            createAnnonceInput: {
+                ...annonceValide,
+                titre: `Annonce DELETE ADMIN ${Date.now()}`
+            }
+        });
+
+        const tokenAdmin = await getToken(
+            process.env.SEED_ADMIN_EMAIL,
+            process.env.SEED_ADMIN_PASSWORD
+        );
+
+        // L'administrateur supprime l'annonce de l'agent.
+        const response = await fetch(
+            `${baseUrl}/annonces/${annonce.id}`,
+            {
+                method: "DELETE",
+                headers: {
+                    Authorization: `Bearer ${tokenAdmin}`
+                }
+            }
+        );
+
+        expect(response.status).toBe(204);
+    });
+
+    it("refuse la suppression pour un utilisateur standard", async () => {
+        const tokenUser = await getToken(
+            process.env.SEED_USER_1_EMAIL,
+            process.env.SEED_USER_1_PASSWORD
+        );
+
+        const response = await fetch(
+            `${baseUrl}/annonces/demo-immo-annonce-01`,
+            {
+                method: "DELETE",
+                headers: {
+                    Authorization: `Bearer ${tokenUser}`
+                }
+            }
+        );
+
+        expect(response.status).toBe(403);
+    });
+
+    it("refuse une suppression sans authentification", async () => {
+        const response = await fetch(
+            `${baseUrl}/annonces/demo-immo-annonce-01`,
+            {
+                method: "DELETE"
+            }
+        );
+
+        expect(response.status).toBe(401);
+    });
+
+    it("refuse un identifiant invalide avec HTTP 400", async () => {
+        const token = await getAgentToken();
+
+        // Identifiant composé uniquement d'espaces.
+        const idInvalide = encodeURIComponent("   ");
+
+        const response = await fetch(
+            `${baseUrl}/annonces/${idInvalide}`,
+            {
+                method: "DELETE",
+                headers: {
+                    Authorization: `Bearer ${token}`
+                }
+            }
+        );
+
+        expect(response.status).toBe(400);
+    });
+
 });

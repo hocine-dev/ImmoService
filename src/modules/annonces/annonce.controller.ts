@@ -1,7 +1,7 @@
 
 import type { RequestHandler } from "express";
 import { apiError } from "../../shared/api-error.js";
-import type { AnnonceQuery, AnnonceIdParams, CreateAnnonceInput, UpdateAnnonceInput } from "./annonce.schema.js";
+import type { AnnonceQuery, AnnonceIdParams, CreateAnnonceInput, UpdateAnnonceInput, ChangeStatutAnnonceRequest } from "./annonce.schema.js";
 
 /**
  * Format des résultats paginés.
@@ -301,4 +301,84 @@ export function createAnnonceDeleteController(
     };
 
     return { remove };
+}
+
+
+/**
+ * Controller de PATCH /annonces/:id/statut.
+ *
+ * Permet de publier ou dépublier une annonce :
+ * - PUBLIE    : rend l'annonce publique.
+ * - BROUILLON : retire l'annonce de la liste publique.
+ *
+ * Les droits du propriétaire sont vérifiés
+ * directement par le Repository.
+ */
+export function createAnnonceStatutController<T>(
+    changeStatutAnnonce: (
+        id: string,
+        statut: ChangeStatutAnnonceRequest["body"]["statut"],
+        utilisateurId: string,
+        isAdmin: boolean
+    ) => Promise<T | null>
+) {
+    const changeStatut: RequestHandler = async (req, res, next) => {
+        try {
+            // Utilisateur authentifié grâce au JWT.
+            const user = req.user;
+
+            if (!user?.id) {
+                res.status(401).json(
+                    apiError("UNAUTHORIZED", "Authentification requise")
+                );
+                return;
+            }
+
+            // Seuls AGENT et ADMIN peuvent changer le statut.
+            if (user.role !== "AGENT" && user.role !== "ADMIN") {
+                res.status(403).json(
+                    apiError("FORBIDDEN", "Accès interdit")
+                );
+                return;
+            }
+
+            // Données validées par le middleware Zod commun.
+            const validated = req.validated as
+                ChangeStatutAnnonceRequest | undefined;
+
+            if (!validated) {
+                throw new Error(
+                    "Validation du statut non exécutée"
+                );
+            }
+
+            const { id } = validated.params;
+            const { statut } = validated.body;
+
+            // Appel du Service avec les informations du JWT.
+            const annonce = await changeStatutAnnonce(
+                id,
+                statut,
+                user.id,
+                user.role === "ADMIN"
+            );
+
+            // Annonce inexistante ou inaccessible à cet agent.
+            if (!annonce) {
+                res.status(404).json(
+                    apiError("NOT_FOUND", "Annonce introuvable")
+                );
+                return;
+            }
+
+            // Publication ou dépublication réussie.
+            res.status(200).json(annonce);
+
+        } catch (error) {
+            // Transmettre les erreurs au middleware global.
+            next(error);
+        }
+    };
+
+    return { changeStatut };
 }

@@ -165,6 +165,24 @@ export const updateAnnonceRequestSchema = z.object({
 });
 
 
+/**
+ * Validation du changement de statut d'une annonce.
+ *
+ * PATCH /annonces/:id/statut
+ *
+ * PUBLIE   : rend l'annonce visible publiquement.
+ * BROUILLON : retire l'annonce de la liste publique.
+ *
+ * Aucun autre champ n'est accepté.
+ */
+export const changeStatutAnnonceRequestSchema = z.object({
+  params: annonceIdSchema,
+
+  body: z.object({
+    statut: z.enum(["BROUILLON", "PUBLIE"])
+  }).strict()
+});
+
 
 
 // Dérive le type TypeScript directement du schéma afin que le code métier
@@ -176,3 +194,5 @@ export type AnnonceIdParams = z.infer<typeof annonceIdSchema>;
 export type CreateAnnonceInput = z.infer<typeof createAnnonceSchema>;
 
 export type UpdateAnnonceInput = z.infer<typeof updateAnnonceSchema>;
+
+export type ChangeStatutAnnonceRequest = z.infer<typeof changeStatutAnnonceRequestSchema>;

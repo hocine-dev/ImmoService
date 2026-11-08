@@ -2,7 +2,7 @@
 import { Prisma } from "../../generated/prisma/client.js";
 import type { PrismaClient } from "../../generated/prisma/client.js";
 
-import type { AnnonceQuery, UpdateAnnonceInput } from "./annonce.schema.js";
+import type { AnnonceQuery, ChangeStatutAnnonceRequest, UpdateAnnonceInput } from "./annonce.schema.js";
 
 import type { CreateAnnonceInput } from "./annonce.schema.js";
 
@@ -287,11 +287,68 @@ export function createAnnonceRepository(
 
 
 
+    /**
+     * Publie ou dépublie une annonce.
+     *
+     * Si l'annonce possède déjà le statut demandé,
+     * aucune ligne n'est modifiée dans PostgreSQL.
+     *
+     * Protection IDOR : un agent ne peut modifier
+     * que ses propres annonces.
+     */
+    async function changeStatutAnnonce(
+        id: string,
+        statut: ChangeStatutAnnonceRequest["body"]["statut"],
+        utilisateurId: string,
+        isAdmin: boolean
+    ) {
+        // Modifier uniquement si le statut est différent.
+        const result = await prisma.annonce.updateMany({
+            where: {
+                id,
+
+                // Vérification du propriétaire pour un agent.
+                ...(isAdmin ? {} : { auteurId: utilisateurId }),
+
+                // Empêche une modification inutile.
+                statut: { not: statut }
+            },
+            data: {
+                statut
+            }
+        });
+
+        // Récupérer l'annonce uniquement si elle est
+        // accessible à cet utilisateur.
+        const annonce = await prisma.annonce.findFirst({
+            where: {
+                id,
+                ...(isAdmin ? {} : { auteurId: utilisateurId })
+            },
+            select: {
+                id: true,
+                statut: true,
+                auteurId: true,
+                updatedAt: true
+            }
+        });
+
+        // Aucune annonce trouvée ou accessible : null.
+        // Si le statut était déjà correct, l'annonce
+        // est retournée sans avoir été modifiée.
+        return annonce;
+    }
+
+
+
+
+
     return {
         findPublishedPage,
         findPublishedById,
         createAnnonce,
         updateAnnonce,
-        deleteAnnonce
+        deleteAnnonce,
+        changeStatutAnnonce
     };
 }

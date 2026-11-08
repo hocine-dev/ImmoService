@@ -32,11 +32,15 @@ export function createApp(prisma: PrismaClient) {
 
   // Module des annonces
   // Protection générale de l'API contre les abus.
-  app.use(
-    ["/annonces", "/users", "/auth", "/questions"],
-    rateLimitMiddleware.generalLimiter,
-    rateLimitMiddleware.speedLimiter
-  );
+  // Désactivée uniquement pendant les tests E2E.
+  if (process.env.NODE_ENV !== "test") {
+    app.use(
+      ["/annonces", "/users", "/auth", "/questions"],
+      rateLimitMiddleware.generalLimiter,
+      rateLimitMiddleware.speedLimiter
+    );
+  }
+
 
   app.use("/annonces", createAnnonceRouter(prisma));
   app.use("/users", createUserRouter(prisma));

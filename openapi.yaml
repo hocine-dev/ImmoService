@@ -189,6 +189,73 @@ paths:
               schema:
                 $ref: "#/components/schemas/ApiError"
 
+    patch:
+      tags:
+        - Annonces
+      summary: Modifier une annonce
+      description: >
+        Un agent peut modifier uniquement ses propres annonces.
+        Un administrateur peut modifier toutes les annonces.
+        Le propriétaire et le statut ne sont pas modifiables ici.
+      operationId: updateAnnonce
+
+      # JWT obligatoire : AGENT ou ADMIN.
+      security:
+        - bearerAuth: []
+
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Identifiant de l'annonce à modifier.
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 100
+
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateAnnonceInput"
+
+      responses:
+        "200":
+          description: Annonce modifiée avec succès.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnnonceModifiee"
+
+        "400":
+          description: Données de modification invalides.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
+        "401":
+          description: Authentification requise.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
+        "403":
+          description: Rôle insuffisant.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
+        "404":
+          description: Annonce inexistante ou inaccessible à cet agent.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
 components:
   securitySchemes:
     bearerAuth:
@@ -197,6 +264,72 @@ components:
       bearerFormat: JWT
 
   schemas:
+    # Données acceptées pour PATCH /annonces/{id}.
+    # Aucun champ n'est obligatoire individuellement,
+    # mais au moins un champ doit être fourni.
+    UpdateAnnonceInput:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        titre:
+          type: string
+          minLength: 1
+        description:
+          type: string
+          minLength: 1
+        type:
+          type: string
+          enum: [VENTE, LOCATION]
+        typePropriete:
+          type: string
+          enum: [APPARTEMENT, MAISON, VILLA, STUDIO, LOFT]
+        prix:
+          type: string
+          pattern: '^(0|[1-9]\d{0,9})(\.\d{1,2})?$'
+          description: Prix strictement positif, deux décimales maximum.
+        ville:
+          type: string
+          minLength: 1
+          maxLength: 100
+        surface:
+          type: integer
+          minimum: 9
+          maximum: 2000
+        chambres:
+          type: integer
+          minimum: 0
+          maximum: 20
+        etat:
+          type: string
+          enum: [DISPONIBLE, LOUE, VENDU]
+        dateDisponibilite:
+          type: string
+          format: date-time
+
+    # Réponse simplifiée : les autres propriétés
+    # de l'annonce peuvent également être renvoyées.
+    AnnonceModifiee:
+      type: object
+      required: [id, statut, auteurId]
+      properties:
+        id:
+          type: string
+        statut:
+          type: string
+          enum: [BROUILLON, PUBLIE]
+        auteurId:
+          type: string
+        titre:
+          type: string
+        prix:
+          type: string
+        ville:
+          type: string
+        updatedAt:
+          type: string
+          format: date-time
+
     CreateAnnonceInput:
       type: object
       additionalProperties: false

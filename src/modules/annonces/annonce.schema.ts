@@ -114,6 +114,58 @@ export const createAnnonceSchema = z.object({
 }).strict();
 
 
+/**
+ * Validation des données de modification d'une annonce.
+ * PATCH /annonces/:id
+ *
+ * .partial() rend tous les champs facultatifs :
+ * le client peut modifier uniquement le prix, par exemple.
+ *
+ * On réutilise les mêmes règles métier que pour POST :
+ * surface, chambres, prix, types de propriétés, etc.
+ */
+export const updateAnnonceSchema = createAnnonceSchema
+  .partial()
+  .refine(
+    data => Object.keys(data).length > 0,
+    { message: "Au moins un champ doit être fourni" }
+  );
+
+
+
+/**
+ * Schémas de validation des requêtes HTTP du module annonces.
+ *
+ * Le middleware commun attend un objet contenant :
+ * - query  : paramètres de recherche ;
+ * - params : paramètres présents dans l'URL ;
+ * - body   : données JSON envoyées par le client.
+ */
+
+// GET /annonces
+export const listAnnoncesRequestSchema = z.object({
+  query: annonceQuerySchema
+});
+
+// GET /annonces/:id
+export const detailAnnonceRequestSchema = z.object({
+  params: annonceIdSchema
+});
+
+// POST /annonces
+export const createAnnonceRequestSchema = z.object({
+  body: createAnnonceSchema
+});
+
+// PATCH /annonces/:id
+// L'identifiant et le corps sont validés ensemble.
+export const updateAnnonceRequestSchema = z.object({
+  params: annonceIdSchema,
+  body: updateAnnonceSchema
+});
+
+
+
 
 // Dérive le type TypeScript directement du schéma afin que le code métier
 // reste synchronisé avec les données réellement validées.
@@ -123,3 +175,4 @@ export type AnnonceIdParams = z.infer<typeof annonceIdSchema>;
 
 export type CreateAnnonceInput = z.infer<typeof createAnnonceSchema>;
 
+export type UpdateAnnonceInput = z.infer<typeof updateAnnonceSchema>;

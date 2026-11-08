@@ -1,7 +1,7 @@
 
 import type { RequestHandler } from "express";
-import type { AnnonceQuery, CreateAnnonceInput } from "./annonce.schema.js";
 import { apiError } from "../../shared/api-error.js";
+import type { AnnonceQuery, AnnonceIdParams, CreateAnnonceInput, UpdateAnnonceInput } from "./annonce.schema.js";
 
 /**
  * Format des résultats paginés.
@@ -33,8 +33,9 @@ export function createAnnonceController<T>(
         next
     ) => {
         try {
-            // Paramètres déjà validés par Zod
-            const query = res.locals.annonceQuery as AnnonceQuery | undefined;
+            const query = (
+                _req.validated as { query: AnnonceQuery } | undefined
+            )?.query;
 
             if (!query) {
                 throw new Error(
@@ -67,9 +68,14 @@ export function createAnnonceDetailController<T>(
 ) {
     const detail: RequestHandler = async (_req, res, next) => {
         try {
-            // Identifiant préalablement validé par Zod
-            const id = res.locals.annonceId as string | undefined;
 
+            // Récupérer l'identifiant validé par le middleware Zod.
+            const id = (
+                _req.validated as { params: AnnonceIdParams } | undefined
+            )?.params.id;
+
+            // Vérification de sécurité : le middleware doit avoir
+            // fourni un identifiant valide avant le Controller.
             if (!id) {
                 throw new Error("Validation de l'identifiant non exécutée");
             }
@@ -128,9 +134,9 @@ export function createAnnoncePostController<T>(
                 return;
             }
 
-            // Données préalablement validées par Zod
-            const input = res.locals.createAnnonceInput as
-                CreateAnnonceInput | undefined;
+            const input = (
+                _req.validated as { body: CreateAnnonceInput } | undefined
+            )?.body;
 
             if (!input) {
                 throw new Error("Validation de l'annonce non exécutée");
@@ -150,3 +156,78 @@ export function createAnnoncePostController<T>(
     return { create };
 }
 
+
+/**
+ * Controller de PATCH /annonces/:id.
+ *
+ * Gère la requête HTTP et les codes de réponse.
+ * La logique d'accès à PostgreSQL reste dans le Repository.
+ */
+export function createAnnoncePatchController<T>(
+    updateAnnonce: (
+        id: string,
+        input: UpdateAnnonceInput,
+        utilisateurId: string,
+        isAdmin: boolean
+    ) => Promise<T | null>
+) {
+    const update: RequestHandler = async (req, res, next) => {
+        try {
+            // Utilisateur authentifié par le JWT.
+            const user = req.user;
+
+            if (!user?.id) {
+                res.status(401).json(
+                    apiError("UNAUTHORIZED", "Authentification requise")
+                );
+                return;
+            }
+
+            // Seuls AGENT et ADMIN peuvent modifier une annonce.
+            if (user.role !== "AGENT" && user.role !== "ADMIN") {
+                res.status(403).json(
+                    apiError("FORBIDDEN", "Accès interdit")
+                );
+                return;
+            }
+
+
+
+            const validated = req.validated as {
+                params: AnnonceIdParams;
+                body: UpdateAnnonceInput;
+            } | undefined;
+
+            if (!validated?.params?.id || !validated.body) {
+                throw new Error("Validation PATCH non exécutée");
+            }
+
+            const id = validated.params.id;
+            const input = validated.body;
+
+            // Appel du Service avec les informations du JWT.
+            const annonce = await updateAnnonce(
+                id,
+                input,
+                user.id,
+                user.role === "ADMIN"
+            );
+
+            // Annonce inexistante ou non accessible.
+            if (!annonce) {
+                res.status(404).json(
+                    apiError("NOT_FOUND", "Annonce introuvable")
+                );
+                return;
+            }
+
+            // Modification réussie.
+            res.status(200).json(annonce);
+
+        } catch (error) {
+            next(error);
+        }
+    };
+
+    return { update };
+}

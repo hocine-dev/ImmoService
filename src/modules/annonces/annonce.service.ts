@@ -1,4 +1,5 @@
 
+import { AnnonceViewer } from "./annonce.policy.js";
 import type { AnnonceQuery, ChangeStatutAnnonceRequest, CreateAnnonceInput, MesAnnoncesQuery, UpdateAnnonceInput } from "./annonce.schema.js";
 
 /**
@@ -52,20 +53,30 @@ export function createAnnonceService<TAnnonce>(
 }
 
 
+
 /**
- * Récupère le détail d'une annonce publiée par son ID.
+ * Récupère une annonce selon les droits du demandeur.
  *
- * Retourne l'annonce si elle existe et est publiée,
- * sinon retourne null.
+ * Sans utilisateur : seules les annonces publiées
+ * sont accessibles.
  */
 export async function getAnnonceById<TAnnonce>(
     repository: {
-        findPublishedById(id: string): Promise<TAnnonce | null>;
+        findPublishedById(
+            id: string,
+            viewer?: AnnonceViewer
+        ): Promise<TAnnonce | null>;
     },
-    id: string
-) {
-    return repository.findPublishedById(id);
+    id: string,
+    viewer?: AnnonceViewer
+): Promise<TAnnonce | null> {
+    if (!viewer) {
+        return repository.findPublishedById(id);
+    }
+
+    return repository.findPublishedById(id, viewer);
 }
+
 
 /**
  * Crée une annonce pour un agent authentifié.

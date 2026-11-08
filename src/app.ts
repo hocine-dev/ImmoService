@@ -12,6 +12,7 @@ import rateLimitMiddleware from "./middlewares/rateLimit.middleware.js";
 import { createUserRouter } from "./modules/user/user.route.js";
 import { createAuthRouter } from "./modules/auth/auth.route.js";
 import { createQuestionRouter } from "./modules/questions/question.route.js";
+import cors from "cors";
 
 /**
  * Construit l'application Express.
@@ -21,6 +22,39 @@ import { createQuestionRouter } from "./modules/questions/question.route.js";
  */
 export function createApp(prisma: PrismaClient) {
   const app = express();
+  app.use(express.json({ limit: "100kb" }));
+
+
+  const allowedOrigins = (process.env.CORS_ORIGINS ?? "")
+    .split(",")
+    .map(origin => origin.trim())
+    .filter(Boolean);
+
+  app.use(cors({
+    // Seules les origines explicitement autorisées
+    // peuvent lire les réponses depuis un navigateur.
+    origin(origin, callback) {
+      callback(
+        null,
+        !!origin && allowedOrigins.includes(origin)
+      );
+    },
+
+    methods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
+
+    allowedHeaders: [
+      "Content-Type",
+      "Authorization"
+    ],
+
+    // Notre API utilise des JWT Bearer,
+    // pas des cookies de session.
+    credentials: false,
+
+    maxAge: 600,
+    optionsSuccessStatus: 204
+  }));
+
 
   app.disable("x-powered-by");
   app.use(express.json());
@@ -55,21 +89,63 @@ export function createApp(prisma: PrismaClient) {
   // Affichage de la documentation Swagger sur /docs.
   app.use("/docs", swaggerUi.serve, swaggerUi.setup(openapi));
 
+
   /**
- * Gère les erreurs techniques non prises en charge
- * par les contrôleurs et retourne une réponse JSON uniforme.
- */
-  const errorHandler: ErrorRequestHandler = (err, _req, res, next) => {
+   * Gestionnaire global des erreurs HTTP.
+   *
+   * - 400 : JSON mal formé
+   * - 413 : corps JSON trop volumineux
+   * - 500 : erreur interne inattendue
+   */
+  const errorHandler: ErrorRequestHandler = (
+    err,
+    _req,
+    res,
+    next
+  ) => {
     if (res.headersSent) {
-      return next(err);
+      next(err);
+      return;
     }
 
+    // Les erreurs du parseur JSON portent un "type".
+    const error = err as { type?: string };
+
+    // JSON mal formé
+    if (error.type === "entity.parse.failed") {
+      res.status(400).json(
+        apiError(
+          "VALIDATION_ERROR",
+          "Corps JSON mal formé",
+          { body: ["Le contenu JSON est invalide"] }
+        )
+      );
+      return;
+    }
+
+    // Taille du JSON supérieure à la limite autorisée
+    if (error.type === "entity.too.large") {
+      res.status(413).json(
+        apiError(
+          "VALIDATION_ERROR",
+          "Corps de la requête trop volumineux",
+          { body: ["La taille maximale autorisée est de 100 Ko"] }
+        )
+      );
+      return;
+    }
+
+    // Toutes les autres erreurs inattendues
     console.error(err);
 
     res.status(500).json(
-      apiError("INTERNAL_ERROR", "Erreur interne du serveur")
+      apiError(
+        "INTERNAL_ERROR",
+        "Erreur interne du serveur"
+      )
     );
   };
+
 
   app.use(errorHandler);
 

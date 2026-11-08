@@ -57,14 +57,27 @@ paths:
 
         - name: prixMax
           in: query
-          description: Prix maximal des annonces.
+          description: >
+            Prix maximal sous forme de chaîne décimale non négative,
+            avec au plus deux décimales.
           schema:
-            type: number
-            minimum: 0
+            type: string
+            pattern: '^(0|[1-9]\d*)(\.\d{1,2})?$'
+            example: "250000.00"
 
       responses:
         "200":
           description: Liste paginée des annonces publiées.
+          headers:
+            ETag:
+              description: Identifiant de la représentation JSON.
+              schema:
+                type: string
+            Cache-Control:
+              description: Politique de cache HTTP public avec revalidation.
+              schema:
+                type: string
+                example: "public, max-age=0, must-revalidate"
           content:
             application/json:
               schema:
@@ -87,6 +100,18 @@ paths:
                         type: integer
                       pages:
                         type: integer
+
+        "304":
+          description: La liste n'a pas changé depuis l'ETag fourni.
+          headers:
+            ETag:
+              description: ETag de la représentation actuelle.
+              schema:
+                type: string
+            Cache-Control:
+              description: Politique de revalidation.
+              schema:
+                type: string
 
         "400":
           description: Paramètres de recherche invalides.
@@ -117,6 +142,12 @@ paths:
       responses:
         "201":
           description: Annonce créée en brouillon.
+          headers:
+            Cache-Control:
+              description: Les réponses d'écriture ne sont pas stockables.
+              schema:
+                type: string
+                example: "no-store"
           content:
             application/json:
               schema:
@@ -124,6 +155,25 @@ paths:
 
         "400":
           description: Données de création invalides.
+          headers:
+            Cache-Control:
+              description: Les réponses d'écriture ne sont pas stockables.
+              schema:
+                type: string
+                example: "no-store"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
+        "413":
+          description: Corps JSON trop volumineux.
+          headers:
+            Cache-Control:
+              description: Les réponses d'écriture ne sont pas stockables.
+              schema:
+                type: string
+                example: "no-store"
           content:
             application/json:
               schema:
@@ -131,6 +181,12 @@ paths:
 
         "401":
           description: JWT absent, invalide ou expiré.
+          headers:
+            Cache-Control:
+              description: Les réponses d'écriture ne sont pas stockables.
+              schema:
+                type: string
+                example: "no-store"
           content:
             application/json:
               schema:
@@ -138,6 +194,12 @@ paths:
 
         "403":
           description: Utilisateur authentifié sans rôle AGENT ou ADMIN.
+          headers:
+            Cache-Control:
+              description: Les réponses d'écriture ne sont pas stockables.
+              schema:
+                type: string
+                example: "no-store"
           content:
             application/json:
               schema:
@@ -145,6 +207,12 @@ paths:
 
         "429":
           description: Limite de requêtes dépassée.
+          headers:
+            Cache-Control:
+              description: Les réponses d'écriture ne sont pas stockables.
+              schema:
+                type: string
+                example: "no-store"
           content:
             application/json:
               schema:
@@ -202,10 +270,13 @@ paths:
 
         - name: prixMax
           in: query
-          description: Prix maximal.
+          description: >
+            Prix maximal sous forme de chaîne décimale non négative,
+            avec au plus deux décimales.
           schema:
-            type: number
-            minimum: 0
+            type: string
+            pattern: '^(0|[1-9]\d*)(\.\d{1,2})?$'
+            example: "250000.00"
 
         - name: statut
           in: query
@@ -217,6 +288,12 @@ paths:
       responses:
         "200":
           description: Liste paginée des annonces du propriétaire.
+          headers:
+            Cache-Control:
+              description: Données personnelles non stockables.
+              schema:
+                type: string
+                example: "private, no-store"
           content:
             application/json:
               schema:
@@ -226,16 +303,7 @@ paths:
                   data:
                     type: array
                     items:
-                      allOf:
-                        - $ref: "#/components/schemas/AnnonceResume"
-                        - type: object
-                          required: [statut, auteurId]
-                          properties:
-                            statut:
-                              type: string
-                              enum: [BROUILLON, PUBLIE]
-                            auteurId:
-                              type: string
+                      $ref: "#/components/schemas/AnnonceDetail"
                   pagination:
                     type: object
                     required: [page, limit, total, pages]
@@ -251,6 +319,12 @@ paths:
 
         "400":
           description: Paramètres de requête invalides.
+          headers:
+            Cache-Control:
+              description: Données personnelles non stockables.
+              schema:
+                type: string
+                example: "private, no-store"
           content:
             application/json:
               schema:
@@ -258,6 +332,12 @@ paths:
 
         "401":
           description: Authentification requise.
+          headers:
+            Cache-Control:
+              description: Données personnelles non stockables.
+              schema:
+                type: string
+                example: "private, no-store"
           content:
             application/json:
               schema:
@@ -265,6 +345,12 @@ paths:
 
         "403":
           description: Accès réservé aux agents et administrateurs.
+          headers:
+            Cache-Control:
+              description: Données personnelles non stockables.
+              schema:
+                type: string
+                example: "private, no-store"
           content:
             application/json:
               schema:
@@ -275,8 +361,13 @@ paths:
       tags:
         - Annonces
       summary: Consulter le détail d'une annonce publiée
+      description: >
+        Les annonces publiées sont accessibles publiquement.
+        Les brouillons sont accessibles uniquement à leur auteur ou aux administrateurs.
       operationId: getAnnonceById
-      security: []
+      security:
+        - {}
+        - bearerAuth: []
 
       parameters:
         - name: id
@@ -290,20 +381,73 @@ paths:
       responses:
         "200":
           description: Détails de l'annonce publiée.
+          headers:
+            ETag:
+              description: Identifiant de la représentation JSON.
+              schema:
+                type: string
+            Cache-Control:
+              description: |
+                Politique de cache HTTP.
+                Les annonces publiées sont publiques avec revalidation.
+                Les brouillons ne doivent pas être mis en cache.
+              schema:
+                type: string
+                examples:
+                  - "public, max-age=0, must-revalidate"
+                  - "private, no-store"
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/AnnonceDetail"
 
+        "304":
+          description: L'annonce n'a pas changé depuis l'ETag fourni.
+          headers:
+            ETag:
+              description: ETag de la représentation actuelle.
+              schema:
+                type: string
+            Cache-Control:
+              description: Politique de revalidation.
+              schema:
+                type: string
+                example: "public, max-age=0, must-revalidate"
+
         "400":
           description: Identifiant invalide.
+          headers:
+            Cache-Control:
+              description: Les brouillons et les réponses d'erreur ne sont pas stockables.
+              schema:
+                type: string
+                example: "private, no-store"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
+        "401":
+          description: Authentification requise ou invalide.
+          headers:
+            Cache-Control:
+              description: Les brouillons et les réponses d'erreur ne sont pas stockables.
+              schema:
+                type: string
+                example: "private, no-store"
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ApiError"
 
         "404":
-          description: Annonce inexistante ou non publiée.
+          description: Annonce inexistante ou non accessible.
+          headers:
+            Cache-Control:
+              description: Les brouillons et les réponses d'erreur ne sont pas stockables.
+              schema:
+                type: string
+                example: "private, no-store"
           content:
             application/json:
               schema:
@@ -343,6 +487,12 @@ paths:
       responses:
         "200":
           description: Annonce modifiée avec succès.
+          headers:
+            Cache-Control:
+              description: Les réponses d'écriture ne sont pas stockables.
+              schema:
+                type: string
+                example: "no-store"
           content:
             application/json:
               schema:
@@ -350,6 +500,12 @@ paths:
 
         "400":
           description: Données de modification invalides.
+          headers:
+            Cache-Control:
+              description: Les réponses d'écriture ne sont pas stockables.
+              schema:
+                type: string
+                example: "no-store"
           content:
             application/json:
               schema:
@@ -357,6 +513,12 @@ paths:
 
         "401":
           description: Authentification requise.
+          headers:
+            Cache-Control:
+              description: Les réponses d'écriture ne sont pas stockables.
+              schema:
+                type: string
+                example: "no-store"
           content:
             application/json:
               schema:
@@ -364,6 +526,12 @@ paths:
 
         "403":
           description: Rôle insuffisant.
+          headers:
+            Cache-Control:
+              description: Les réponses d'écriture ne sont pas stockables.
+              schema:
+                type: string
+                example: "no-store"
           content:
             application/json:
               schema:
@@ -371,6 +539,12 @@ paths:
 
         "404":
           description: Annonce inexistante ou inaccessible à cet agent.
+          headers:
+            Cache-Control:
+              description: Les réponses d'écriture ne sont pas stockables.
+              schema:
+                type: string
+                example: "no-store"
           content:
             application/json:
               schema:
@@ -405,9 +579,21 @@ paths:
       responses:
         "204":
           description: Annonce supprimée avec succès.
+          headers:
+            Cache-Control:
+              description: Les réponses d'écriture ne sont pas stockables.
+              schema:
+                type: string
+                example: "no-store"
 
         "400":
           description: Identifiant invalide.
+          headers:
+            Cache-Control:
+              description: Les réponses d'écriture ne sont pas stockables.
+              schema:
+                type: string
+                example: "no-store"
           content:
             application/json:
               schema:
@@ -415,6 +601,12 @@ paths:
 
         "401":
           description: Authentification requise.
+          headers:
+            Cache-Control:
+              description: Les réponses d'écriture ne sont pas stockables.
+              schema:
+                type: string
+                example: "no-store"
           content:
             application/json:
               schema:
@@ -422,6 +614,12 @@ paths:
 
         "403":
           description: Rôle insuffisant.
+          headers:
+            Cache-Control:
+              description: Les réponses d'écriture ne sont pas stockables.
+              schema:
+                type: string
+                example: "no-store"
           content:
             application/json:
               schema:
@@ -429,6 +627,12 @@ paths:
 
         "404":
           description: Annonce inexistante ou inaccessible à cet agent.
+          headers:
+            Cache-Control:
+              description: Les réponses d'écriture ne sont pas stockables.
+              schema:
+                type: string
+                example: "no-store"
           content:
             application/json:
               schema:
@@ -481,6 +685,12 @@ paths:
       responses:
         "200":
           description: Statut enregistré avec succès.
+          headers:
+            Cache-Control:
+              description: Les réponses d'écriture ne sont pas stockables.
+              schema:
+                type: string
+                example: "no-store"
           content:
             application/json:
               schema:
@@ -504,6 +714,12 @@ paths:
 
         "400":
           description: Identifiant ou statut invalide.
+          headers:
+            Cache-Control:
+              description: Les réponses d'écriture ne sont pas stockables.
+              schema:
+                type: string
+                example: "no-store"
           content:
             application/json:
               schema:
@@ -511,6 +727,12 @@ paths:
 
         "401":
           description: Authentification requise.
+          headers:
+            Cache-Control:
+              description: Les réponses d'écriture ne sont pas stockables.
+              schema:
+                type: string
+                example: "no-store"
           content:
             application/json:
               schema:
@@ -518,6 +740,12 @@ paths:
 
         "403":
           description: Rôle insuffisant.
+          headers:
+            Cache-Control:
+              description: Les réponses d'écriture ne sont pas stockables.
+              schema:
+                type: string
+                example: "no-store"
           content:
             application/json:
               schema:
@@ -525,6 +753,12 @@ paths:
 
         "404":
           description: Annonce inexistante ou inaccessible à cet agent.
+          headers:
+            Cache-Control:
+              description: Les réponses d'écriture ne sont pas stockables.
+              schema:
+                type: string
+                example: "no-store"
           content:
             application/json:
               schema:
@@ -560,12 +794,15 @@ components:
           enum: [APPARTEMENT, MAISON, VILLA, STUDIO, LOFT]
         prix:
           type: string
-          pattern: '^(0|[1-9]\d{0,9})(\.\d{1,2})?$'
-          description: Prix strictement positif, deux décimales maximum.
+          description: Prix strictement positif, au maximum deux décimales
+          pattern: '^(?:[1-9][0-9]{0,9}(?:[.][0-9]{1,2})?|0[.](?:[1-9][0-9]?|0[1-9]))$'
+          example: "400000.00"
         ville:
           type: string
           minLength: 1
           maxLength: 100
+          description: Ville du bien immobilier (100 caractères maximum)
+          example: Le Havre
         surface:
           type: integer
           minimum: 9
@@ -631,12 +868,15 @@ components:
           enum: [APPARTEMENT, MAISON, VILLA, STUDIO, LOFT]
         prix:
           type: string
-          description: Montant strictement positif, avec au plus deux décimales.
-          pattern: '^(?!0(?:\.0{1,2})?$)(0|[1-9]\d{0,9})(\.\d{1,2})?$'
-          examples: ["185000.00"]
+          description: Prix strictement positif, au maximum deux décimales
+          pattern: '^(?:[1-9][0-9]{0,9}(?:[.][0-9]{1,2})?|0[.](?:[1-9][0-9]?|0[1-9]))$'
+          example: "400000.00"
         ville:
           type: string
           minLength: 1
+          maxLength: 100
+          description: Ville du bien immobilier (100 caractères maximum)
+          example: Le Havre
         surface:
           type: integer
           minimum: 9
@@ -712,7 +952,7 @@ components:
               type: [string, "null"]
             statut:
               type: string
-              enum: [PUBLIE]
+              enum: [BROUILLON, PUBLIE]
             dateDisponibilite:
               type: [string, "null"]
               format: date-time

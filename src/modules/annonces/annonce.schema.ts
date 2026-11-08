@@ -50,7 +50,7 @@ export const annonceQuerySchema = z.object({
   // Le prix est reçu comme une chaîne, puis converti en nombre après avoir
   // refusé les formats ambigus (signe, notation scientifique ou valeur vide).
   prixMax: z.string()
-    .regex(/^(0|[1-9]\d*)(\.\d+)?$/)
+    .regex(/^(0|[1-9]\d*)(\.\d{1,2})?$/)
     .transform(Number)
     .pipe(
       z.number()

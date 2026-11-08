@@ -1,10 +1,29 @@
 
 import { Prisma } from "../../generated/prisma/client.js";
 import type { PrismaClient } from "../../generated/prisma/client.js";
+import { AnnonceViewer, canReadAnnonce, getAnnonceWriteScope } from "./annonce.policy.js";
 
 import type { AnnonceQuery, ChangeStatutAnnonceRequest, MesAnnoncesQuery, UpdateAnnonceInput } from "./annonce.schema.js";
 
 import type { CreateAnnonceInput } from "./annonce.schema.js";
+
+
+
+
+/**
+ * Échappe les caractères spéciaux de LIKE/ILIKE.
+ *
+ * %  : zéro ou plusieurs caractères
+ * _  : exactement un caractère
+ * \  : caractère d'échappement SQL
+ *
+ * Le texte fourni par l'utilisateur doit être
+ * recherché littéralement.
+ */
+function escapeLike(value: string): string {
+    return value.replace(/[\\%_]/g, "\\$&");
+}
+
 
 /**
  * Repository des annonces.
@@ -25,8 +44,8 @@ export function createAnnonceRepository(
         // 2. Filtre optionnel : ville
         if (ville !== undefined) {
             where.ville = {
-                equals: ville,
-                mode: "insensitive"
+                contains: escapeLike(ville),
+                mode: "insensitive" as const
             };
         }
 
@@ -98,33 +117,54 @@ export function createAnnonceRepository(
         };
     }
 
+
     /**
-     * Recherche une annonce publiée à partir de son identifiant.
-     * Retourne null si l'annonce n'existe pas ou est en brouillon.
+     * Récupère une annonce accessible au demandeur.
+     * - Annonce publiée : accès public.
+     * - Brouillon : auteur AGENT ou ADMIN uniquement.
      */
-    async function findPublishedById(id: string) {
+    async function findPublishedById(
+        id: string,
+        viewer?: AnnonceViewer
+    ) {
+        // Filtrer les accès directement dans PostgreSQL.
+        const where: Prisma.AnnonceWhereInput = {
+            id,
+
+            ...(viewer?.role === "ADMIN"
+                ? {}
+                : viewer?.role === "AGENT"
+                    ? {
+                        OR: [
+                            { statut: "PUBLIE" },
+                            { auteurId: viewer.id }
+                        ]
+                    }
+                    : { statut: "PUBLIE" })
+        };
+
         const annonce = await prisma.annonce.findFirst({
-            where: {
-                id,
-                statut: "PUBLIE"
-            },
+            where,
             include: {
                 photos: true
             }
         });
 
-        // Annonce inexistante ou non publiée
-        if (!annonce) {
+        // Vérification supplémentaire par la politique pure.
+        if (!annonce || !canReadAnnonce(annonce, viewer)) {
             return null;
         }
 
-        // Conversion des types pour la réponse JSON
         return {
             ...annonce,
             prix: annonce.prix.toFixed(2),
-            createdAt: annonce.createdAt.toISOString()
+            dateDisponibilite:
+                annonce.dateDisponibilite?.toISOString() ?? null,
+            createdAt: annonce.createdAt.toISOString(),
+            updatedAt: annonce.updatedAt.toISOString()
         };
     }
+
 
 
     /**
@@ -189,13 +229,19 @@ export function createAnnonceRepository(
         utilisateurId: string,
         isAdmin: boolean
     ) {
+        const scope = getAnnonceWriteScope({
+            id: utilisateurId,
+            role: isAdmin ? "ADMIN" : "AGENT"
+        });
+
+        if (scope === null) {
+            return null;
+        }
         const result = await prisma.annonce.updateMany({
             where: {
                 id,
 
-                // Pour un AGENT, l'auteur doit correspondre au JWT.
-                // Pour un ADMIN, aucune restriction sur l'auteur.
-                ...(isAdmin ? {} : { auteurId: utilisateurId })
+                ...scope
             },
 
             data: {
@@ -269,14 +315,21 @@ export function createAnnonceRepository(
         isAdmin: boolean
     ): Promise<boolean> {
 
+        const scope = getAnnonceWriteScope({
+            id: utilisateurId,
+            role: isAdmin ? "ADMIN" : "AGENT"
+        });
+
+        if (scope === null) {
+            return false;
+        }
+
         const result = await prisma.annonce.deleteMany({
             where: {
                 id,
 
-                // Pour un agent, imposer son identifiant.
-                // Pour un administrateur, ne pas filtrer
-                // sur le propriétaire.
-                ...(isAdmin ? {} : { auteurId: utilisateurId })
+                ...scope
+
             }
         });
 
@@ -303,12 +356,20 @@ export function createAnnonceRepository(
         isAdmin: boolean
     ) {
         // Modifier uniquement si le statut est différent.
+        const scope = getAnnonceWriteScope({
+            id: utilisateurId,
+            role: isAdmin ? "ADMIN" : "AGENT"
+        });
+
+        if (scope === null) {
+            return null;
+        }
+
         const result = await prisma.annonce.updateMany({
             where: {
                 id,
 
-                // Vérification du propriétaire pour un agent.
-                ...(isAdmin ? {} : { auteurId: utilisateurId }),
+                ...scope,
 
                 // Empêche une modification inutile.
                 statut: { not: statut }
@@ -323,7 +384,7 @@ export function createAnnonceRepository(
         const annonce = await prisma.annonce.findFirst({
             where: {
                 id,
-                ...(isAdmin ? {} : { auteurId: utilisateurId })
+                ...scope
             },
             select: {
                 id: true,
@@ -365,7 +426,7 @@ export function createAnnonceRepository(
 
             ...(ville !== undefined ? {
                 ville: {
-                    contains: ville,
+                    contains: escapeLike(ville),
                     mode: "insensitive" as const
                 }
             } : {}),
@@ -405,7 +466,7 @@ export function createAnnonceRepository(
                 ...annonce,
                 prix: annonce.prix.toFixed(2),
                 dateDisponibilite:
-                    annonce.dateDisponibilite.toISOString(),
+                    annonce.dateDisponibilite?.toISOString() ?? null,
                 createdAt: annonce.createdAt.toISOString(),
                 updatedAt: annonce.updatedAt.toISOString()
             })),

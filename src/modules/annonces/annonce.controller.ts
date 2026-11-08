@@ -2,6 +2,7 @@
 import type { RequestHandler } from "express";
 import { apiError } from "../../shared/api-error.js";
 import type { AnnonceQuery, AnnonceIdParams, CreateAnnonceInput, UpdateAnnonceInput, ChangeStatutAnnonceRequest, MesAnnoncesQuery } from "./annonce.schema.js";
+import { AnnonceViewer } from "./annonce.policy.js";
 
 /**
  * Format des résultats paginés.
@@ -46,7 +47,9 @@ export function createAnnonceController<T>(
             // Appel du service métier
             const result = await listAnnonces(query);
 
-            // Réponse HTTP
+            // Liste publique : stockage autorisé, mais revalidation obligatoire.
+            // Express génère automatiquement l'ETag du JSON.
+            res.set("Cache-Control", "public, max-age=0, must-revalidate");
             res.status(200).json(result);
 
         } catch (error) {
@@ -63,8 +66,11 @@ export function createAnnonceController<T>(
  * Contrôleur de GET /annonces/:id.
  * Récupère une annonce publiée ou retourne une erreur 404.
  */
-export function createAnnonceDetailController<T>(
-    getAnnonceById: (id: string) => Promise<T | null>
+export function createAnnonceDetailController<T extends { statut: string }>(
+    getAnnonceById: (
+        id: string,
+        viewer?: AnnonceViewer
+    ) => Promise<T | null>
 ) {
     const detail: RequestHandler = async (_req, res, next) => {
         try {
@@ -81,7 +87,10 @@ export function createAnnonceDetailController<T>(
             }
 
             // Recherche de l'annonce via le Service
-            const annonce = await getAnnonceById(id);
+
+            const annonce = _req.user
+                ? await getAnnonceById(id, _req.user)
+                : await getAnnonceById(id);
 
             // Annonce inexistante ou en brouillon
             if (!annonce) {
@@ -91,7 +100,12 @@ export function createAnnonceDetailController<T>(
                 return;
             }
 
-            // Annonce publiée trouvée
+            // Une annonce publiée peut être mise en cache publiquement.
+            // Un brouillon ne doit jamais être stocké.
+            if (annonce.statut === "PUBLIE") {
+                res.set("Cache-Control", "public, max-age=0, must-revalidate");
+            }
+
             res.status(200).json(annonce);
 
         } catch (error) {

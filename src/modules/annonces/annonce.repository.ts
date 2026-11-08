@@ -2,7 +2,7 @@
 import { Prisma } from "../../generated/prisma/client.js";
 import type { PrismaClient } from "../../generated/prisma/client.js";
 
-import type { AnnonceQuery, ChangeStatutAnnonceRequest, UpdateAnnonceInput } from "./annonce.schema.js";
+import type { AnnonceQuery, ChangeStatutAnnonceRequest, MesAnnoncesQuery, UpdateAnnonceInput } from "./annonce.schema.js";
 
 import type { CreateAnnonceInput } from "./annonce.schema.js";
 
@@ -340,7 +340,78 @@ export function createAnnonceRepository(
     }
 
 
+    /**
+     * Récupère les annonces d'un utilisateur authentifié.
+     *
+     * Contrairement à GET /annonces, cette méthode
+     * retourne aussi les annonces en brouillon.
+     *
+     * Le filtre auteurId est obligatoire :
+     * il provient du JWT et jamais du client.
+     */
+    async function findMesAnnonces(
+        query: MesAnnoncesQuery,
+        auteurId: string
+    ) {
+        const { page, limit, ville, type, prixMax, statut } = query;
 
+        // Construire les filtres Prisma.
+        const where = {
+            // Sécurité : uniquement les annonces du propriétaire.
+            auteurId,
+
+            // Filtres facultatifs.
+            ...(statut !== undefined ? { statut } : {}),
+
+            ...(ville !== undefined ? {
+                ville: {
+                    contains: ville,
+                    mode: "insensitive" as const
+                }
+            } : {}),
+
+            ...(type !== undefined ? { type } : {}),
+
+            ...(prixMax !== undefined ? {
+                prix: { lte: prixMax }
+            } : {})
+        };
+
+        // Compter les annonces et récupérer la page demandée.
+        const [total, annonces] = await Promise.all([
+            prisma.annonce.count({ where }),
+
+            prisma.annonce.findMany({
+                where,
+
+                skip: (page - 1) * limit,
+                take: limit,
+
+                // Ordre stable pour la pagination.
+                orderBy: [
+                    { createdAt: "desc" },
+                    { id: "asc" }
+                ],
+
+                include: {
+                    photos: true
+                }
+            })
+        ]);
+
+        // Convertir les valeurs Prisma en données JSON.
+        return {
+            annonces: annonces.map(annonce => ({
+                ...annonce,
+                prix: annonce.prix.toFixed(2),
+                dateDisponibilite:
+                    annonce.dateDisponibilite.toISOString(),
+                createdAt: annonce.createdAt.toISOString(),
+                updatedAt: annonce.updatedAt.toISOString()
+            })),
+            total
+        };
+    }
 
 
     return {
@@ -349,6 +420,7 @@ export function createAnnonceRepository(
         createAnnonce,
         updateAnnonce,
         deleteAnnonce,
-        changeStatutAnnonce
+        changeStatutAnnonce,
+        findMesAnnonces
     };
 }

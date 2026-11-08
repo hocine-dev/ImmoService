@@ -1,5 +1,5 @@
 
-import type { AnnonceQuery, ChangeStatutAnnonceRequest, CreateAnnonceInput, UpdateAnnonceInput } from "./annonce.schema.js";
+import type { AnnonceQuery, ChangeStatutAnnonceRequest, CreateAnnonceInput, MesAnnoncesQuery, UpdateAnnonceInput } from "./annonce.schema.js";
 
 /**
  * Contrat attendu du Repository.
@@ -185,4 +185,42 @@ export async function changeStatutAnnonce<TAnnonce>(
         utilisateurId,
         isAdmin
     );
+}
+
+
+/**
+ * Récupère les annonces de l'utilisateur authentifié.
+ *
+ * Contrairement à la liste publique, cette fonction
+ * retourne les annonces publiées et les brouillons.
+ *
+ * L'identifiant de l'utilisateur vient du JWT.
+ */
+export async function getMesAnnonces<TAnnonce>(
+    repository: {
+        findMesAnnonces(
+            query: MesAnnoncesQuery,
+            auteurId: string
+        ): Promise<{
+            annonces: TAnnonce[];
+            total: number;
+        }>;
+    },
+    query: MesAnnoncesQuery,
+    auteurId: string
+) {
+    // Récupérer les annonces et leur nombre total.
+    const { annonces, total } =
+        await repository.findMesAnnonces(query, auteurId);
+
+    // Conserver le format de pagination de GET /annonces.
+    return {
+        data: annonces,
+        pagination: {
+            page: query.page,
+            limit: query.limit,
+            total,
+            pages: Math.ceil(total / query.limit)
+        }
+    };
 }

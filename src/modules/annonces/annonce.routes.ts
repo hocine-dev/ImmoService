@@ -8,7 +8,8 @@ import {
     detailAnnonceRequestSchema,
     createAnnonceRequestSchema,
     updateAnnonceRequestSchema,
-    changeStatutAnnonceRequestSchema
+    changeStatutAnnonceRequestSchema,
+    mesAnnoncesRequestSchema
 } from "./annonce.schema.js";
 
 // Controllers existants
@@ -18,7 +19,8 @@ import {
     createAnnoncePostController,
     createAnnoncePatchController,
     createAnnonceDeleteController,
-    createAnnonceStatutController
+    createAnnonceStatutController,
+    createMesAnnoncesController
 } from "./annonce.controller.js";
 
 // Services existants
@@ -28,7 +30,8 @@ import {
     createAnnonce,
     updateAnnonce,
     deleteAnnonce,
-    changeStatutAnnonce
+    changeStatutAnnonce,
+    getMesAnnonces
 } from "./annonce.service.js";
 
 // Repository existant
@@ -73,6 +76,31 @@ export function createAnnonceRouter(prisma: PrismaClient) {
         validateMiddleware(listAnnoncesRequestSchema),
         listController.list
     );
+
+
+    /**
+     * GET /annonces/miennes
+     *
+     * Liste les annonces de l'utilisateur authentifié,
+     * y compris ses brouillons.
+     *
+     * Sécurité :
+     * - JWT obligatoire
+     * - Rôle AGENT ou ADMIN
+     * - auteurId récupéré depuis req.user.id
+     */
+    const mesAnnoncesController = createMesAnnoncesController(
+        (query, auteurId) =>
+            getMesAnnonces(repository, query, auteurId)
+    );
+
+    router.get(
+        "/miennes",
+        authMiddleware([Role.AGENT, Role.ADMIN]),
+        validate(mesAnnoncesRequestSchema),
+        mesAnnoncesController.list
+    );
+
 
     /**
      * GET /annonces/:id

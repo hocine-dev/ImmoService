@@ -1,7 +1,7 @@
 
 import type { RequestHandler } from "express";
 import { apiError } from "../../shared/api-error.js";
-import type { AnnonceQuery, AnnonceIdParams, CreateAnnonceInput, UpdateAnnonceInput, ChangeStatutAnnonceRequest } from "./annonce.schema.js";
+import type { AnnonceQuery, AnnonceIdParams, CreateAnnonceInput, UpdateAnnonceInput, ChangeStatutAnnonceRequest, MesAnnoncesQuery } from "./annonce.schema.js";
 
 /**
  * Format des résultats paginés.
@@ -381,4 +381,61 @@ export function createAnnonceStatutController<T>(
     };
 
     return { changeStatut };
+}
+
+
+/**
+ * Controller de GET /annonces/miennes.
+ *
+ * Permet à un utilisateur AGENT ou ADMIN authentifié
+ * de consulter uniquement ses propres annonces,
+ * publiées ou en brouillon.
+ */
+export function createMesAnnoncesController<T>(
+    getMesAnnonces: (
+        query: MesAnnoncesQuery,
+        auteurId: string
+    ) => Promise<PaginatedResponse<T>>
+) {
+    const list: RequestHandler = async (req, res, next) => {
+        try {
+            // L'utilisateur est fourni par le middleware JWT.
+            const user = req.user;
+
+            if (!user?.id) {
+                res.status(401).json(
+                    apiError(
+                        "UNAUTHORIZED",
+                        "Authentification requise"
+                    )
+                );
+                return;
+            }
+
+            // Paramètres préalablement validés par Zod.
+            const validated = req.validated as
+                { query: MesAnnoncesQuery } | undefined;
+
+            if (!validated?.query) {
+                throw new Error(
+                    "Validation des paramètres non exécutée"
+                );
+            }
+
+            // L'identifiant du propriétaire vient du JWT,
+            // jamais des paramètres fournis par le client.
+            const result = await getMesAnnonces(
+                validated.query,
+                user.id
+            );
+
+            // Réponse paginée standard.
+            res.status(200).json(result);
+
+        } catch (error) {
+            next(error);
+        }
+    };
+
+    return { list };
 }

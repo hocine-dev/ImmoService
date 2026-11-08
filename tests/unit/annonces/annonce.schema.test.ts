@@ -1,4 +1,4 @@
-import { createAnnonceSchema } from "../../../src/modules/annonces/annonce.schema.js";
+import { createAnnonceSchema, mesAnnoncesQuerySchema } from "../../../src/modules/annonces/annonce.schema.js";
 
 import { describe, it, expect } from "vitest";
 
@@ -107,45 +107,45 @@ describe("GET /annonces - Validation des paramètres", () => {
 
 describe("GET /annonces/:id - Validation de l'identifiant", () => {
 
-        /**
-         * Vérifie que Zod accepte un identifiant valide.
-         * Les identifiants du projet ne sont pas obligatoirement des UUID.
-         */
-        it("accepte un identifiant valide", () => {
-            const result = annonceIdSchema.safeParse({
-                id: "demo-immo-annonce-12"
-            });
-
-            expect(result.success).toBe(true);
+    /**
+     * Vérifie que Zod accepte un identifiant valide.
+     * Les identifiants du projet ne sont pas obligatoirement des UUID.
+     */
+    it("accepte un identifiant valide", () => {
+        const result = annonceIdSchema.safeParse({
+            id: "demo-immo-annonce-12"
         });
 
-        /**
-         * Vérifie qu'un identifiant composé uniquement
-         * d'espaces est refusé.
-         */
-        it("refuse un identifiant vide", () => {
-            const result = annonceIdSchema.safeParse({
-                id: "   "
-            });
+        expect(result.success).toBe(true);
+    });
 
-            expect(result.success).toBe(false);
+    /**
+     * Vérifie qu'un identifiant composé uniquement
+     * d'espaces est refusé.
+     */
+    it("refuse un identifiant vide", () => {
+        const result = annonceIdSchema.safeParse({
+            id: "   "
         });
 
-        /**
-         * Vérifie que les espaces inutiles autour
-         * de l'identifiant sont supprimés.
-         */
-        it("supprime les espaces autour de l'identifiant", () => {
-            const result = annonceIdSchema.safeParse({
-                id: "  demo-immo-annonce-12  "
-            });
+        expect(result.success).toBe(false);
+    });
 
-            expect(result.success).toBe(true);
-
-            if (result.success) {
-                expect(result.data.id).toBe("demo-immo-annonce-12");
-            }
+    /**
+     * Vérifie que les espaces inutiles autour
+     * de l'identifiant sont supprimés.
+     */
+    it("supprime les espaces autour de l'identifiant", () => {
+        const result = annonceIdSchema.safeParse({
+            id: "  demo-immo-annonce-12  "
         });
+
+        expect(result.success).toBe(true);
+
+        if (result.success) {
+            expect(result.data.id).toBe("demo-immo-annonce-12");
+        }
+    });
 
 });
 
@@ -155,56 +155,126 @@ describe("GET /annonces/:id - Validation de l'identifiant", () => {
  * Les tests suivants réutilisent cette base pour ne modifier qu'un champ à la fois.
  */
 const postAnnonceValide = {
-  titre: "Appartement T3",
-  description: "Appartement avec balcon",
-  type: "VENTE",
-  typePropriete: "APPARTEMENT",
-  prix: "185000.00",
-  ville: "Le Havre",
-  surface: 75,
-  chambres: 2,
+    titre: "Appartement T3",
+    description: "Appartement avec balcon",
+    type: "VENTE",
+    typePropriete: "APPARTEMENT",
+    prix: "185000.00",
+    ville: "Le Havre",
+    surface: 75,
+    chambres: 2,
 } as const;
 
 describe("POST /annonces - validation", () => {
-  /**
-   * Vérifie que le schéma accepte une annonce complète
-   * lorsque tous les champs respectent les règles métier.
-   */
-  it("accepte une annonce valide", () => {
-    expect(createAnnonceSchema.safeParse(postAnnonceValide).success).toBe(true);
-  });
+    /**
+     * Vérifie que le schéma accepte une annonce complète
+     * lorsque tous les champs respectent les règles métier.
+     */
+    it("accepte une annonce valide", () => {
+        expect(createAnnonceSchema.safeParse(postAnnonceValide).success).toBe(true);
+    });
 
-  /**
-   * Vérifie les bornes métier appliquées à la surface et au nombre de chambres.
-   * Chaque variation doit être rejetée sans invalider les autres champs du test.
-   */
-  it("refuse les valeurs métier incohérentes", () => {
-    for (const changement of [
-      { surface: 8 },
-      { surface: 2001 },
-      { chambres: 21 },
-    ]) {
-      expect(createAnnonceSchema.safeParse({
-        ...postAnnonceValide,
-        ...changement
-      }).success).toBe(false);
-    }
-  });
+    /**
+     * Vérifie les bornes métier appliquées à la surface et au nombre de chambres.
+     * Chaque variation doit être rejetée sans invalider les autres champs du test.
+     */
+    it("refuse les valeurs métier incohérentes", () => {
+        for (const changement of [
+            { surface: 8 },
+            { surface: 2001 },
+            { chambres: 21 },
+        ]) {
+            expect(createAnnonceSchema.safeParse({
+                ...postAnnonceValide,
+                ...changement
+            }).success).toBe(false);
+        }
+    });
 
-  /**
-   * Vérifie qu'un prix négatif est refusé et que les champs gérés par le serveur
-   * ne peuvent pas être imposés par le client lors de la création.
-   */
-  it("refuse un prix invalide et les champs protégés", () => {
-    expect(createAnnonceSchema.safeParse({
-      ...postAnnonceValide,
-      prix: "-100"
-    }).success).toBe(false);
+    /**
+     * Vérifie qu'un prix négatif est refusé et que les champs gérés par le serveur
+     * ne peuvent pas être imposés par le client lors de la création.
+     */
+    it("refuse un prix invalide et les champs protégés", () => {
+        expect(createAnnonceSchema.safeParse({
+            ...postAnnonceValide,
+            prix: "-100"
+        }).success).toBe(false);
 
-    expect(createAnnonceSchema.safeParse({
-      ...postAnnonceValide,
-      auteurId: "autre-agent",
-      statut: "PUBLIE"
-    }).success).toBe(false);
-  });
+        expect(createAnnonceSchema.safeParse({
+            ...postAnnonceValide,
+            auteurId: "autre-agent",
+            statut: "PUBLIE"
+        }).success).toBe(false);
+    });
+});
+
+
+/**
+ * Tests de validation des paramètres
+ * de GET /annonces/miennes.
+ */
+describe("GET /annonces/miennes - Validation Zod", () => {
+
+    it("applique les valeurs de pagination par défaut", () => {
+        const query = mesAnnoncesQuerySchema.parse({});
+
+        expect(query.page).toBe(1);
+        expect(query.limit).toBe(10);
+
+        // Aucun filtre de statut par défaut :
+        // les brouillons et les annonces publiées sont inclus.
+        expect(query.statut).toBeUndefined();
+    });
+
+    it("accepte les filtres et convertit les paramètres", () => {
+        const query = mesAnnoncesQuerySchema.parse({
+            page: "2",
+            limit: "5",
+            ville: " Le Havre ",
+            type: "VENTE",
+            prixMax: "200000",
+            statut: "BROUILLON"
+        });
+
+        expect(query).toMatchObject({
+            page: 2,
+            limit: 5,
+            ville: "Le Havre",
+            type: "VENTE",
+            prixMax: 200000,
+            statut: "BROUILLON"
+        });
+    });
+
+    it("refuse un statut inconnu", () => {
+        const result = mesAnnoncesQuerySchema.safeParse({
+            statut: "ARCHIVE"
+        });
+
+        expect(result.success).toBe(false);
+    });
+
+    it("refuse un auteurId fourni par le client", () => {
+        const result = mesAnnoncesQuerySchema.safeParse({
+            auteurId: "agent-2"
+        });
+
+        // Le propriétaire doit venir exclusivement du JWT.
+        expect(result.success).toBe(false);
+    });
+
+    it("refuse les valeurs de pagination invalides", () => {
+        const pageInvalide = mesAnnoncesQuerySchema.safeParse({
+            page: "0"
+        });
+
+        const limiteInvalide = mesAnnoncesQuerySchema.safeParse({
+            limit: "101"
+        });
+
+        expect(pageInvalide.success).toBe(false);
+        expect(limiteInvalide.success).toBe(false);
+    });
+
 });

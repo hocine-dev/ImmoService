@@ -1003,3 +1003,318 @@ describe("PATCH /annonces/:id/statut - Tests E2E", () => {
     });
 
 });
+
+
+/**
+ * Tests E2E de GET /annonces/miennes.
+ */
+describe("GET /annonces/miennes - Tests E2E", () => {
+
+    it("retourne les brouillons et les annonces publiées de l'agent", async () => {
+        const token = await getAgentToken();
+
+        // Ville unique pour isoler les données du test.
+        const ville = `VilleTest${Date.now()}`;
+
+        // Conserver les IDs pour nettoyer la base ensuite.
+        const ids: string[] = [];
+
+        // Appeler GET /annonces/miennes avec le JWT.
+        const getMiennes = (query = "") =>
+            fetch(`${baseUrl}/annonces/miennes${query}`, {
+                headers: {
+                    Authorization: `Bearer ${token}`
+                }
+            });
+
+        try {
+            // 1. Créer deux annonces en brouillon.
+            const annonce1 = await sdkPost(token).createAnnonce({
+                createAnnonceInput: {
+                    ...annonceValide,
+                    titre: "Test mes annonces - Brouillon",
+                    ville
+                }
+            });
+
+            ids.push(annonce1.id);
+
+            const annonce2 = await sdkPost(token).createAnnonce({
+                createAnnonceInput: {
+                    ...annonceValide,
+                    titre: "Test mes annonces - Publiée",
+                    ville
+                }
+            });
+
+            ids.push(annonce2.id);
+
+            // 2. Publier uniquement la deuxième annonce.
+            const publication = await fetch(
+                `${baseUrl}/annonces/${annonce2.id}/statut`,
+                {
+                    method: "PATCH",
+                    headers: {
+                        Authorization: `Bearer ${token}`,
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({
+                        statut: "PUBLIE"
+                    })
+                }
+            );
+
+            expect(publication.status).toBe(200);
+
+            // 3. Récupérer toutes les annonces de cette ville.
+            const response = await getMiennes(
+                `?ville=${encodeURIComponent(ville)}`
+            );
+
+            expect(response.status).toBe(200);
+
+            const result = await response.json();
+
+            expect(result.pagination.total).toBe(2);
+            expect(result.pagination.page).toBe(1);
+            expect(result.pagination.limit).toBe(10);
+
+            // Les deux annonces doivent être présentes.
+            const annoncesIds = result.data.map(
+                (annonce: { id: string }) => annonce.id
+            );
+
+            expect(annoncesIds).toContain(annonce1.id);
+            expect(annoncesIds).toContain(annonce2.id);
+
+            // 4. Filtrer uniquement les brouillons.
+            const brouillons = await getMiennes(
+                `?ville=${encodeURIComponent(ville)}&statut=BROUILLON`
+            );
+
+            expect(brouillons.status).toBe(200);
+
+            const dataBrouillons = await brouillons.json();
+
+            expect(dataBrouillons.pagination.total).toBe(1);
+            expect(dataBrouillons.data[0].id).toBe(annonce1.id);
+
+            // 5. Filtrer uniquement les annonces publiées.
+            const publiees = await getMiennes(
+                `?ville=${encodeURIComponent(ville)}&statut=PUBLIE`
+            );
+
+            expect(publiees.status).toBe(200);
+
+            const dataPubliees = await publiees.json();
+
+            expect(dataPubliees.pagination.total).toBe(1);
+            expect(dataPubliees.data[0].id).toBe(annonce2.id);
+
+            // 6. Vérifier la pagination avec limit=1.
+            const pagination = await getMiennes(
+                `?ville=${encodeURIComponent(ville)}&page=1&limit=1`
+            );
+
+            expect(pagination.status).toBe(200);
+
+            const dataPagination = await pagination.json();
+
+            expect(dataPagination.data).toHaveLength(1);
+            expect(dataPagination.pagination.total).toBe(2);
+            expect(dataPagination.pagination.pages).toBe(2);
+
+        } finally {
+            // Nettoyer les annonces créées pour le test.
+            for (const id of ids) {
+                const suppression = await fetch(
+                    `${baseUrl}/annonces/${id}`,
+                    {
+                        method: "DELETE",
+                        headers: {
+                            Authorization: `Bearer ${token}`
+                        }
+                    }
+                );
+
+                expect(suppression.status).toBe(204);
+            }
+        }
+    });
+
+
+    it("empêche un agent de consulter les annonces d'un autre (IDOR)", async () => {
+        const tokenAgent1 = await getAgentToken();
+
+        const tokenAgent2 = await getToken(
+            process.env.SEED_AGENT_2_EMAIL,
+            process.env.SEED_AGENT_2_PASSWORD
+        );
+
+        const ville = `VilleIdor${Date.now()}`;
+
+        // L'agent 1 crée un brouillon.
+        const annonce = await sdkPost(tokenAgent1).createAnnonce({
+            createAnnonceInput: {
+                ...annonceValide,
+                ville,
+                titre: "Annonce privée de l'agent 1"
+            }
+        });
+
+        try {
+            const query = `?ville=${encodeURIComponent(ville)}`;
+
+            // L'agent 1 doit voir sa propre annonce.
+            const responseAgent1 = await fetch(
+                `${baseUrl}/annonces/miennes${query}`,
+                {
+                    headers: {
+                        Authorization: `Bearer ${tokenAgent1}`
+                    }
+                }
+            );
+
+            expect(responseAgent1.status).toBe(200);
+
+            const resultatAgent1 = await responseAgent1.json();
+
+            expect(resultatAgent1.pagination.total).toBe(1);
+            expect(resultatAgent1.data[0].id).toBe(annonce.id);
+
+            // L'agent 2 ne doit pas voir ce brouillon.
+            const responseAgent2 = await fetch(
+                `${baseUrl}/annonces/miennes${query}`,
+                {
+                    headers: {
+                        Authorization: `Bearer ${tokenAgent2}`
+                    }
+                }
+            );
+
+            expect(responseAgent2.status).toBe(200);
+
+            const resultatAgent2 = await responseAgent2.json();
+
+            expect(resultatAgent2.data).toEqual([]);
+            expect(resultatAgent2.pagination.total).toBe(0);
+
+        } finally {
+            const suppression = await fetch(
+                `${baseUrl}/annonces/${annonce.id}`,
+                {
+                    method: "DELETE",
+                    headers: {
+                        Authorization: `Bearer ${tokenAgent1}`
+                    }
+                }
+            );
+
+            expect(suppression.status).toBe(204);
+        }
+    });
+
+    it("limite également un administrateur à ses propres annonces", async () => {
+        const tokenAgent = await getAgentToken();
+
+        const tokenAdmin = await getToken(
+            process.env.SEED_ADMIN_EMAIL,
+            process.env.SEED_ADMIN_PASSWORD
+        );
+
+        const ville = `VilleAdmin${Date.now()}`;
+
+        const annonce = await sdkPost(tokenAgent).createAnnonce({
+            createAnnonceInput: {
+                ...annonceValide,
+                ville
+            }
+        });
+
+        try {
+            const response = await fetch(
+                `${baseUrl}/annonces/miennes?ville=${encodeURIComponent(ville)}`,
+                {
+                    headers: {
+                        Authorization: `Bearer ${tokenAdmin}`
+                    }
+                }
+            );
+
+            expect(response.status).toBe(200);
+
+            const resultat = await response.json();
+
+            expect(resultat.data).toEqual([]);
+            expect(resultat.pagination.total).toBe(0);
+
+        } finally {
+            const suppression = await fetch(
+                `${baseUrl}/annonces/${annonce.id}`,
+                {
+                    method: "DELETE",
+                    headers: {
+                        Authorization: `Bearer ${tokenAgent}`
+                    }
+                }
+            );
+
+            expect(suppression.status).toBe(204);
+        }
+    });
+
+    it("refuse l'accès sans authentification avec HTTP 401", async () => {
+        const response = await fetch(
+            `${baseUrl}/annonces/miennes`
+        );
+
+        expect(response.status).toBe(401);
+    });
+
+    it("refuse l'accès à un utilisateur USER avec HTTP 403", async () => {
+        const tokenUser = await getToken(
+            process.env.SEED_USER_1_EMAIL,
+            process.env.SEED_USER_1_PASSWORD
+        );
+
+        const response = await fetch(
+            `${baseUrl}/annonces/miennes`,
+            {
+                headers: {
+                    Authorization: `Bearer ${tokenUser}`
+                }
+            }
+        );
+
+        expect(response.status).toBe(403);
+    });
+
+    it("refuse les paramètres invalides et auteurId fourni par le client", async () => {
+        const token = await getAgentToken();
+
+        // Un statut inconnu doit être refusé.
+        const statutInvalide = await fetch(
+            `${baseUrl}/annonces/miennes?statut=ARCHIVE`,
+            {
+                headers: {
+                    Authorization: `Bearer ${token}`
+                }
+            }
+        );
+
+        expect(statutInvalide.status).toBe(400);
+
+        // Un client ne doit pas choisir le propriétaire.
+        const auteurInterdit = await fetch(
+            `${baseUrl}/annonces/miennes?auteurId=agent-2`,
+            {
+                headers: {
+                    Authorization: `Bearer ${token}`
+                }
+            }
+        );
+
+        expect(auteurInterdit.status).toBe(400);
+    });
+
+});

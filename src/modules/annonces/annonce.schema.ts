@@ -184,6 +184,30 @@ export const changeStatutAnnonceRequestSchema = z.object({
 });
 
 
+/**
+ * Paramètres de GET /annonces/miennes.
+ *
+ * Réutilise les filtres de GET /annonces :
+ * - page
+ * - limit
+ * - ville
+ * - type
+ * - prixMax
+ *
+ * Ajoute le filtre statut pour consulter
+ * les brouillons ou les annonces publiées.
+ */
+export const mesAnnoncesQuerySchema = annonceQuerySchema.extend({
+  statut: z.enum(["BROUILLON", "PUBLIE"]).optional()
+});
+
+/**
+ * Validation complète de la requête HTTP.
+ * Compatible avec le middleware commun validate().
+ */
+export const mesAnnoncesRequestSchema = z.object({
+  query: mesAnnoncesQuerySchema
+});
 
 // Dérive le type TypeScript directement du schéma afin que le code métier
 // reste synchronisé avec les données réellement validées.
@@ -196,3 +220,5 @@ export type CreateAnnonceInput = z.infer<typeof createAnnonceSchema>;
 export type UpdateAnnonceInput = z.infer<typeof updateAnnonceSchema>;
 
 export type ChangeStatutAnnonceRequest = z.infer<typeof changeStatutAnnonceRequestSchema>;
+
+export type MesAnnoncesQuery = z.infer<typeof mesAnnoncesQuerySchema>;

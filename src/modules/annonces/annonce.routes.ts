@@ -39,7 +39,9 @@ import { createAnnonceRepository } from "./annonce.repository.js";
 
 // Middlewares communs du projet
 import validateMiddleware from "../../middlewares/validate.middleware.js";
-import authMiddleware from "../../middlewares/auth.middleware.js";
+import authMiddleware, {
+    optionalAuthMiddleware
+} from "../../middlewares/auth.middleware.js";
 import { Role } from "../user/user.service.js";
 import validate from "../../middlewares/validate.middleware.js";
 
@@ -56,6 +58,21 @@ import validate from "../../middlewares/validate.middleware.js";
 export function createAnnonceRouter(prisma: PrismaClient) {
 
     const router = Router();
+
+    /**
+     * Les opérations d'écriture ne doivent pas être
+     * conservées dans un cache HTTP.
+     *
+     * Ce middleware intervient avant l'authentification :
+     * les réponses 401/403 sont également protégées.
+     */
+    router.use((req, res, next) => {
+        if (req.method !== "GET" && req.method !== "HEAD") {
+            res.set("Cache-Control", "no-store");
+        }
+
+        next();
+    });
 
     // Repository commun aux différentes opérations
     const repository = createAnnonceRepository(prisma);
@@ -96,6 +113,11 @@ export function createAnnonceRouter(prisma: PrismaClient) {
 
     router.get(
         "/miennes",
+        (_req, res, next) => {
+            // Données personnelles : aucun stockage.
+            res.set("Cache-Control", "private, no-store");
+            next();
+        },
         authMiddleware([Role.AGENT, Role.ADMIN]),
         validate(mesAnnoncesRequestSchema),
         mesAnnoncesController.list
@@ -107,11 +129,19 @@ export function createAnnonceRouter(prisma: PrismaClient) {
      * Consultation publique des annonces publiées.
      */
     const detailController = createAnnonceDetailController(
-        id => getAnnonceById(repository, id)
+        (id, utilisateurId) =>
+            getAnnonceById(repository, id, utilisateurId)
     );
 
     router.get(
         "/:id",
+        (_req, res, next) => {
+            // Protection par défaut : les brouillons et
+            // réponses d'erreur ne sont pas stockables.
+            res.set("Cache-Control", "private, no-store");
+            next();
+        },
+        optionalAuthMiddleware,
         validateMiddleware(detailAnnonceRequestSchema),
         detailController.detail
     );

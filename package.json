@@ -11,17 +11,22 @@
     "build": "npm run db:generate && tsc -p tsconfig.build.json",
     "start": "node dist/server.js",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run",
     "db:up": "docker compose up -d --wait",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:deploy": "prisma migrate deploy",
-    "db:seed": "prisma db seed"
+    "db:seed": "prisma db seed",
+    "test": "npm run test:unit && npm run test:e2e",
+    "test:unit": "vitest run tests/unit/",
+    "test:e2e": "vitest run --config vitest.e2e.config.ts",
+    "sdk:generate": "openapi-generator-cli generate -i openapi.yaml -g typescript-fetch -o ./sdk --additional-properties=importFileExtension=.js",
+    "pretest": "npm run sdk:generate"
   },
   "dependencies": {
     "@prisma/adapter-pg": "7.10.1",
     "@prisma/client": "7.10.1",
     "argon2": "^0.45.2",
+    "cors": "^2.8.6",
     "dotenv": "^17.2.0",
     "express": "^5.3.0",
     "express-rate-limit": "^8.7.3",
@@ -34,6 +39,7 @@
   },
   "devDependencies": {
     "@openapitools/openapi-generator-cli": "^2.42.0",
+    "@types/cors": "^2.8.19",
     "@types/express": "^5.0.0",
     "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^22.0.0",

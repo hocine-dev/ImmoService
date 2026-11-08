@@ -14,8 +14,7 @@ if (dev.pathname === test.pathname || !test.pathname.endsWith("_test")) {
 export default defineConfig({
   test: {
     environment: "node",
-    include: ["tests/**/*.test.ts"],
-    passWithNoTests: true,
+    include: ["tests/unit/**/*.test.ts"], passWithNoTests: true,
     fileParallelism: false,
     env: { NODE_ENV: "test", DATABASE_URL: testUrl },
   },

@@ -2,7 +2,7 @@
 import { Prisma } from "../../generated/prisma/client.js";
 import type { PrismaClient } from "../../generated/prisma/client.js";
 
-import type { AnnonceQuery } from "./annonce.schema.js";
+import type { AnnonceQuery, UpdateAnnonceInput } from "./annonce.schema.js";
 
 import type { CreateAnnonceInput } from "./annonce.schema.js";
 
@@ -172,9 +172,93 @@ export function createAnnonceRepository(
     }
 
 
+
+    /**
+     * Modifie une annonce existante.
+     *
+     * Protection IDOR :
+     * - ADMIN : peut modifier toutes les annonces.
+     * - AGENT : peut modifier uniquement ses annonces.
+     *
+     * Le contrôle du propriétaire est effectué directement
+     * dans la condition SQL de mise à jour.
+     */
+    async function updateAnnonce(
+        id: string,
+        input: UpdateAnnonceInput,
+        utilisateurId: string,
+        isAdmin: boolean
+    ) {
+        const result = await prisma.annonce.updateMany({
+            where: {
+                id,
+
+                // Pour un AGENT, l'auteur doit correspondre au JWT.
+                // Pour un ADMIN, aucune restriction sur l'auteur.
+                ...(isAdmin ? {} : { auteurId: utilisateurId })
+            },
+
+            data: {
+                // Seuls les champs présents seront modifiés.
+                titre: input.titre,
+                description: input.description,
+                type: input.type,
+                typePropriete: input.typePropriete,
+                ville: input.ville,
+                surface: input.surface,
+                chambres: input.chambres,
+                etat: input.etat,
+
+                // Conversion du prix en Decimal pour Prisma.
+                prix: input.prix === undefined
+                    ? undefined
+                    : new Prisma.Decimal(input.prix),
+
+                // Conversion ISO 8601 vers Date.
+                dateDisponibilite: input.dateDisponibilite === undefined
+                    ? undefined
+                    : new Date(input.dateDisponibilite)
+            }
+        });
+
+        /**
+         * Aucune ligne modifiée :
+         * - annonce inexistante ;
+         * - ou annonce appartenant à un autre agent.
+         *
+         * Dans les deux cas, on retourne null.
+         */
+        if (result.count === 0) {
+            return null;
+        }
+
+        // Récupérer l'annonce actualisée avec ses photos.
+        const annonce = await prisma.annonce.findUnique({
+            where: { id },
+            include: { photos: true }
+        });
+
+        if (!annonce) {
+            return null;
+        }
+
+        // Même format JSON que POST /annonces.
+        return {
+            ...annonce,
+            prix: annonce.prix.toFixed(2),
+            dateDisponibilite:
+                annonce.dateDisponibilite?.toISOString() ?? null,
+            createdAt: annonce.createdAt.toISOString(),
+            updatedAt: annonce.updatedAt.toISOString()
+        };
+    }
+
+
+
     return {
         findPublishedPage,
         findPublishedById,
-        createAnnonce
+        createAnnonce,
+        updateAnnonce
     };
 }

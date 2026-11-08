@@ -1,167 +1,132 @@
 
 import { Router } from "express";
-import type { RequestHandler } from "express";
 import type { PrismaClient } from "../../generated/prisma/client.js";
 
-import { annonceQuerySchema, annonceIdSchema, createAnnonceSchema } from "./annonce.schema.js";
-import { createAnnonceController, createAnnonceDetailController, createAnnoncePostController } from "./annonce.controller.js";
-import { createAnnonceService, getAnnonceById, createAnnonce } from "./annonce.service.js";
+// Schémas de validation HTTP du module annonces
+import {
+    listAnnoncesRequestSchema,
+    detailAnnonceRequestSchema,
+    createAnnonceRequestSchema,
+    updateAnnonceRequestSchema
+} from "./annonce.schema.js";
+
+// Controllers existants
+import {
+    createAnnonceController,
+    createAnnonceDetailController,
+    createAnnoncePostController,
+    createAnnoncePatchController
+} from "./annonce.controller.js";
+
+// Services existants
+import {
+    createAnnonceService,
+    getAnnonceById,
+    createAnnonce,
+    updateAnnonce
+} from "./annonce.service.js";
+
+// Repository existant
 import { createAnnonceRepository } from "./annonce.repository.js";
 
-import { apiError } from "../../shared/api-error.js";
-import { Role } from "../user/user.service.js";
+// Middlewares communs du projet
+import validateMiddleware from "../../middlewares/validate.middleware.js";
 import authMiddleware from "../../middlewares/auth.middleware.js";
+import { Role } from "../user/user.service.js";
 
 /**
- * Middleware de validation des paramètres.
- */
-const validateAnnonceQuery: RequestHandler = (
-    req,
-    res,
-    next
-) => {
-    const result = annonceQuerySchema.safeParse(req.query);
-
-    if (!result.success) {
-        const details: Record<string, string[]> = {};
-
-        for (const issue of result.error.issues) {
-            const field = String(issue.path[0] ?? "query");
-            (details[field] ??= []).push(issue.message);
-        }
-
-        res.status(400).json(
-            apiError(
-                "VALIDATION_ERROR",
-                "Paramètres de requête invalides",
-                details
-            )
-        );
-        return;
-    }
-
-    // Paramètres validés pour le Controller
-    res.locals.annonceQuery = result.data;
-
-    next();
-};
-
-
-/**
- * Vérifie l'identifiant reçu dans GET /annonces/:id.
- * Si l'identifiant est invalide, retourne HTTP 400.
- */
-const validateAnnonceId: RequestHandler = (req, res, next) => {
-    const result = annonceIdSchema.safeParse(req.params);
-
-    if (!result.success) {
-        const details: Record<string, string[]> = {};
-
-        for (const issue of result.error.issues) {
-            const field = String(issue.path[0] ?? "id");
-            (details[field] ??= []).push(issue.message);
-        }
-
-        res.status(400).json(
-            apiError(
-                "VALIDATION_ERROR",
-                "Identifiant d'annonce invalide",
-                details
-            )
-        );
-        return;
-    }
-
-    // Identifiant validé, transmis au Controller
-    res.locals.annonceId = result.data.id;
-
-    next();
-};
-
-
-
-/**
- * Valide les données reçues pour POST /annonces.
- * Les champs inconnus ou invalides sont refusés.
- */
-const validateCreateAnnonce: RequestHandler = (req, res, next) => {
-    const result = createAnnonceSchema.safeParse(req.body);
-
-    if (!result.success) {
-        const details: Record<string, string[]> = {};
-
-        for (const issue of result.error.issues) {
-            const field = String(issue.path[0] ?? "body");
-            (details[field] ??= []).push(issue.message);
-        }
-
-        res.status(400).json(
-            apiError(
-                "VALIDATION_ERROR",
-                "Données de l'annonce invalides",
-                details
-            )
-        );
-        return;
-    }
-
-    // Données validées transmises au Controller
-    res.locals.createAnnonceInput = result.data;
-    next();
-};
-
-
-
-/**
- * Fabrique du routeur des annonces.
+ * Construit le routeur du module annonces.
+ *
+ * Principe :
+ * - Les routes déclarent les middlewares nécessaires.
+ * - validate() vérifie les données HTTP avec Zod.
+ * - authMiddleware() vérifie les JWT et les rôles.
+ * - Les Controllers traitent la réponse HTTP.
+ * - Le Repository impose les restrictions IDOR.
  */
 export function createAnnonceRouter(prisma: PrismaClient) {
+
     const router = Router();
 
-    // 1. Initialiser le Repository
+    // Repository commun aux différentes opérations
     const repository = createAnnonceRepository(prisma);
 
-    // 2. Initialiser le Service
+    // Service de consultation des annonces
     const service = createAnnonceService(repository);
 
-    // 3. Initialiser le Controller
-    const controller = createAnnonceController(
+    /**
+     * GET /annonces
+     * Route publique : aucune authentification requise.
+     */
+    const listController = createAnnonceController(
         service.listAnnonces
     );
 
-    // 4. Déclarer la route GET /annonces
     router.get(
         "/",
-        validateAnnonceQuery,
-        controller.list
+        validateMiddleware(listAnnoncesRequestSchema),
+        listController.list
     );
 
-
-    // Controller du détail : le Service utilise le même Repository.
+    /**
+     * GET /annonces/:id
+     * Consultation publique des annonces publiées.
+     */
     const detailController = createAnnonceDetailController(
-        (id) => getAnnonceById(repository, id)
+        id => getAnnonceById(repository, id)
     );
 
-    // GET /annonces/:id - Consultation d'une annonce publiée
     router.get(
         "/:id",
-        validateAnnonceId,
+        validateMiddleware(detailAnnonceRequestSchema),
         detailController.detail
     );
 
-    // Controller de création : réutilise le Repository existant.
+    /**
+     * POST /annonces
+     *
+     * 1. Vérifier le JWT et le rôle.
+     * 2. Valider les données avec Zod.
+     * 3. Créer l'annonce en brouillon.
+     */
     const postController = createAnnoncePostController(
-        (input, auteurId) => createAnnonce(repository, input, auteurId)
+        (input, auteurId) =>
+            createAnnonce(repository, input, auteurId)
     );
 
-    // POST /annonces - Création d'une annonce par un agent
     router.post(
         "/",
         authMiddleware([Role.AGENT, Role.ADMIN]),
-        validateCreateAnnonce,
+        validateMiddleware(createAnnonceRequestSchema),
         postController.create
     );
 
+    /**
+     * PATCH /annonces/:id
+     *
+     * 1. Vérifier le JWT et le rôle.
+     * 2. Valider ensemble l'ID et le body.
+     * 3. Vérifier le propriétaire pendant la mise à jour.
+     *
+     * Un agent ne peut pas modifier l'annonce d'un autre.
+     */
+    const patchController = createAnnoncePatchController(
+        (id, input, utilisateurId, isAdmin) =>
+            updateAnnonce(
+                repository,
+                id,
+                input,
+                utilisateurId,
+                isAdmin
+            )
+    );
+
+    router.patch(
+        "/:id",
+        authMiddleware([Role.AGENT, Role.ADMIN]),
+        validateMiddleware(updateAnnonceRequestSchema),
+        patchController.update
+    );
 
     return router;
 }

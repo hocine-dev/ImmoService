@@ -1,5 +1,5 @@
 
-import type { AnnonceQuery, CreateAnnonceInput } from "./annonce.schema.js";
+import type { AnnonceQuery, CreateAnnonceInput, UpdateAnnonceInput } from "./annonce.schema.js";
 
 /**
  * Contrat attendu du Repository.
@@ -86,3 +86,38 @@ export async function createAnnonce<TAnnonce>(
     return repository.createAnnonce(input, auteurId);
 }
 
+
+/**
+ * Service de modification d'une annonce.
+ *
+ * Le Controller fournit :
+ * - l'identifiant de l'annonce ;
+ * - les données validées par Zod ;
+ * - l'identifiant issu du JWT ;
+ * - le statut administrateur ou non.
+ *
+ * Le Repository applique la restriction de propriétaire
+ * au moment de l'écriture en base.
+ */
+export async function updateAnnonce<TAnnonce>(
+    repository: {
+        updateAnnonce(
+            id: string,
+            input: UpdateAnnonceInput,
+            utilisateurId: string,
+            isAdmin: boolean
+        ): Promise<TAnnonce | null>;
+    },
+    id: string,
+    input: UpdateAnnonceInput,
+    utilisateurId: string,
+    isAdmin: boolean
+): Promise<TAnnonce | null> {
+
+    return repository.updateAnnonce(
+        id,
+        input,
+        utilisateurId,
+        isAdmin
+    );
+}

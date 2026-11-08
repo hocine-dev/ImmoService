@@ -7,7 +7,8 @@ import {
     listAnnoncesRequestSchema,
     detailAnnonceRequestSchema,
     createAnnonceRequestSchema,
-    updateAnnonceRequestSchema
+    updateAnnonceRequestSchema,
+    changeStatutAnnonceRequestSchema
 } from "./annonce.schema.js";
 
 // Controllers existants
@@ -16,7 +17,8 @@ import {
     createAnnonceDetailController,
     createAnnoncePostController,
     createAnnoncePatchController,
-    createAnnonceDeleteController
+    createAnnonceDeleteController,
+    createAnnonceStatutController
 } from "./annonce.controller.js";
 
 // Services existants
@@ -25,7 +27,8 @@ import {
     getAnnonceById,
     createAnnonce,
     updateAnnonce,
-    deleteAnnonce
+    deleteAnnonce,
+    changeStatutAnnonce
 } from "./annonce.service.js";
 
 // Repository existant
@@ -160,6 +163,42 @@ export function createAnnonceRouter(prisma: PrismaClient) {
         validate(detailAnnonceRequestSchema),
         deleteController.remove
     );
+
+
+    /**
+     * PATCH /annonces/:id/statut
+     *
+     * Une seule route pour deux opérations :
+     * - PUBLIE    : publier une annonce.
+     * - BROUILLON : dépublier une annonce.
+     *
+     * Ordre des middlewares :
+     * 1. Authentification JWT et vérification du rôle.
+     * 2. Validation de l'identifiant et du statut avec Zod.
+     * 3. Controller de changement de statut.
+     *
+     * Le Repository vérifie également le propriétaire
+     * directement dans PostgreSQL (protection IDOR).
+     */
+
+    const statutController = createAnnonceStatutController(
+        (id, statut, utilisateurId, isAdmin) =>
+            changeStatutAnnonce(
+                repository,
+                id,
+                statut,
+                utilisateurId,
+                isAdmin
+            )
+    );
+
+    router.patch(
+        "/:id/statut",
+        authMiddleware([Role.AGENT, Role.ADMIN]),
+        validate(changeStatutAnnonceRequestSchema),
+        statutController.changeStatut
+    );
+
 
 
     return router;

@@ -725,3 +725,281 @@ describe("DELETE /annonces/:id - Tests E2E", () => {
     });
 
 });
+
+
+/**
+ * Tests E2E de publication et dépublication.
+ *
+ * L'annonce est créée spécialement pour le test.
+ * Elle est supprimée à la fin pour ne pas modifier
+ * les résultats des autres tests E2E.
+ */
+describe("PATCH /annonces/:id/statut - Tests E2E", () => {
+
+    it("publie, dépublie et évite les écritures inutiles", async () => {
+        const token = await getAgentToken();
+
+        // Créer une annonce en brouillon.
+        const annonce = await sdkPost(token).createAnnonce({
+            createAnnonceInput: {
+                ...annonceValide,
+                titre: `Test statut ${Date.now()}`
+            }
+        });
+
+        // Fonction utilitaire pour appeler notre route.
+        const changerStatut = async (
+            statut: "PUBLIE" | "BROUILLON"
+        ) => {
+            const response = await fetch(
+                `${baseUrl}/annonces/${annonce.id}/statut`,
+                {
+                    method: "PATCH",
+                    headers: {
+                        Authorization: `Bearer ${token}`,
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({ statut })
+                }
+            );
+
+            expect(response.status).toBe(200);
+
+            return response.json() as Promise<{
+                statut: string;
+                updatedAt: string;
+            }>;
+        };
+
+        try {
+            // 1. Publier l'annonce.
+            const premierePublication =
+                await changerStatut("PUBLIE");
+
+            expect(premierePublication.statut).toBe("PUBLIE");
+
+            // Elle doit être accessible publiquement.
+            const detail = await api.getAnnonceById({
+                id: annonce.id
+            });
+
+            expect(detail.statut).toBe("PUBLIE");
+
+            // 2. Publier une deuxième fois.
+            const secondePublication =
+                await changerStatut("PUBLIE");
+
+            // Aucune modification inutile dans PostgreSQL.
+            expect(secondePublication.updatedAt).toBe(
+                premierePublication.updatedAt
+            );
+
+            // 3. Dépublier.
+            const premiereDepublication =
+                await changerStatut("BROUILLON");
+
+            expect(premiereDepublication.statut).toBe("BROUILLON");
+
+            // L'annonce n'est plus accessible publiquement.
+            await expect(
+                api.getAnnonceById({ id: annonce.id })
+            ).rejects.toMatchObject({
+                response: { status: 404 }
+            });
+
+            // 4. Dépublier une deuxième fois.
+            const secondeDepublication =
+                await changerStatut("BROUILLON");
+
+            // Le champ updatedAt reste inchangé.
+            expect(secondeDepublication.updatedAt).toBe(
+                premiereDepublication.updatedAt
+            );
+
+        } finally {
+            // Nettoyage : supprimer l'annonce du test,
+            // même si une assertion précédente échoue.
+            const suppression = await fetch(
+                `${baseUrl}/annonces/${annonce.id}`,
+                {
+                    method: "DELETE",
+                    headers: {
+                        Authorization: `Bearer ${token}`
+                    }
+                }
+            );
+
+            expect(suppression.status).toBe(204);
+        }
+    });
+
+    /**
+     * Fonction utilitaire pour les tests de sécurité.
+     * Le token peut être absent pour tester HTTP 401.
+     */
+    const envoyerStatut = (
+        id: string,
+        token: string | undefined,
+        body: unknown
+    ) => fetch(`${baseUrl}/annonces/${id}/statut`, {
+        method: "PATCH",
+        headers: {
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {})
+        },
+        body: JSON.stringify(body)
+    });
+
+    it("empêche un agent de publier l'annonce d'un autre (IDOR)", async () => {
+        const tokenAgent1 = await getAgentToken();
+        const tokenAgent2 = await getToken(
+            process.env.SEED_AGENT_2_EMAIL,
+            process.env.SEED_AGENT_2_PASSWORD
+        );
+
+        // Créer un brouillon appartenant à l'agent 1.
+        const annonce = await sdkPost(tokenAgent1).createAnnonce({
+            createAnnonceInput: {
+                ...annonceValide,
+                titre: `Test IDOR statut ${Date.now()}`
+            }
+        });
+
+        try {
+            // L'agent 2 tente de publier cette annonce.
+            const response = await envoyerStatut(
+                annonce.id,
+                tokenAgent2,
+                { statut: "PUBLIE" }
+            );
+
+            expect(response.status).toBe(404);
+
+            // Le brouillon ne doit pas être devenu public.
+            await expect(
+                api.getAnnonceById({ id: annonce.id })
+            ).rejects.toMatchObject({
+                response: { status: 404 }
+            });
+
+        } finally {
+            // Nettoyage avec le propriétaire légitime.
+            const suppression = await fetch(
+                `${baseUrl}/annonces/${annonce.id}`,
+                {
+                    method: "DELETE",
+                    headers: {
+                        Authorization: `Bearer ${tokenAgent1}`
+                    }
+                }
+            );
+
+            expect(suppression.status).toBe(204);
+        }
+    });
+
+    it("autorise un administrateur à publier l'annonce d'un agent", async () => {
+        const tokenAgent = await getAgentToken();
+        const tokenAdmin = await getToken(
+            process.env.SEED_ADMIN_EMAIL,
+            process.env.SEED_ADMIN_PASSWORD
+        );
+
+        const annonce = await sdkPost(tokenAgent).createAnnonce({
+            createAnnonceInput: {
+                ...annonceValide,
+                titre: `Test statut ADMIN ${Date.now()}`
+            }
+        });
+
+        try {
+            const response = await envoyerStatut(
+                annonce.id,
+                tokenAdmin,
+                { statut: "PUBLIE" }
+            );
+
+            expect(response.status).toBe(200);
+
+            const resultat = await response.json();
+
+            expect(resultat.statut).toBe("PUBLIE");
+            expect(resultat.auteurId).toBe(annonce.auteurId);
+
+        } finally {
+            const suppression = await fetch(
+                `${baseUrl}/annonces/${annonce.id}`,
+                {
+                    method: "DELETE",
+                    headers: {
+                        Authorization: `Bearer ${tokenAgent}`
+                    }
+                }
+            );
+
+            expect(suppression.status).toBe(204);
+        }
+    });
+
+    it("refuse le changement de statut pour USER", async () => {
+        const tokenUser = await getToken(
+            process.env.SEED_USER_1_EMAIL,
+            process.env.SEED_USER_1_PASSWORD
+        );
+
+        const response = await envoyerStatut(
+            "demo-immo-annonce-01",
+            tokenUser,
+            { statut: "BROUILLON" }
+        );
+
+        expect(response.status).toBe(403);
+    });
+
+    it("refuse le changement de statut sans JWT", async () => {
+        const response = await envoyerStatut(
+            "demo-immo-annonce-01",
+            undefined,
+            { statut: "BROUILLON" }
+        );
+
+        expect(response.status).toBe(401);
+    });
+
+    it("refuse un statut invalide avec HTTP 400", async () => {
+        const token = await getAgentToken();
+
+        const response = await envoyerStatut(
+            "demo-immo-annonce-01",
+            token,
+            { statut: "ARCHIVE" }
+        );
+
+        expect(response.status).toBe(400);
+    });
+
+    it("refuse un identifiant invalide avec HTTP 400", async () => {
+        const token = await getAgentToken();
+
+        const response = await envoyerStatut(
+            encodeURIComponent("   "),
+            token,
+            { statut: "PUBLIE" }
+        );
+
+        expect(response.status).toBe(400);
+    });
+
+    it("retourne 404 pour une annonce inexistante", async () => {
+        const token = await getAgentToken();
+
+        const response = await envoyerStatut(
+            "annonce-inexistante-999",
+            token,
+            { statut: "PUBLIE" }
+        );
+
+        expect(response.status).toBe(404);
+    });
+
+});

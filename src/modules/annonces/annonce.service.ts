@@ -1,5 +1,5 @@
 
-import type { AnnonceQuery, CreateAnnonceInput, UpdateAnnonceInput } from "./annonce.schema.js";
+import type { AnnonceQuery, ChangeStatutAnnonceRequest, CreateAnnonceInput, UpdateAnnonceInput } from "./annonce.schema.js";
 
 /**
  * Contrat attendu du Repository.
@@ -148,6 +148,40 @@ export async function deleteAnnonce(
 
     return repository.deleteAnnonce(
         id,
+        utilisateurId,
+        isAdmin
+    );
+}
+
+
+/**
+ * Publie ou dépublie une annonce.
+ *
+ * Statuts possibles :
+ * - PUBLIE    : l'annonce devient publique.
+ * - BROUILLON : l'annonce n'est plus publique.
+ *
+ * Le Repository vérifie les droits de l'utilisateur
+ * directement dans la requête Prisma.
+ */
+export async function changeStatutAnnonce<TAnnonce>(
+    repository: {
+        changeStatutAnnonce(
+            id: string,
+            statut: ChangeStatutAnnonceRequest["body"]["statut"],
+            utilisateurId: string,
+            isAdmin: boolean
+        ): Promise<TAnnonce | null>;
+    },
+    id: string,
+    statut: ChangeStatutAnnonceRequest["body"]["statut"],
+    utilisateurId: string,
+    isAdmin: boolean
+): Promise<TAnnonce | null> {
+
+    return repository.changeStatutAnnonce(
+        id,
+        statut,
         utilisateurId,
         isAdmin
     );

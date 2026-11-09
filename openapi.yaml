@@ -387,7 +387,7 @@ paths:
 
 # ──────────────────────────── USERS ────────────────────────────
 
-  /api/users/getAll:
+  /users/getAll:
     get:
       tags:
         - Users
@@ -423,7 +423,7 @@ paths:
         "403":
           $ref: "#/components/responses/Forbidden"
 
-  /api/users/{id}:
+  /users/{id}:
     get:
       tags:
         - Users
@@ -538,7 +538,7 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
-  /api/users/register:
+  /users/register:
     post:
       tags:
         - Users

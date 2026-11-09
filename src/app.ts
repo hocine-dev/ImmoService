@@ -13,6 +13,8 @@ import { createUserRouter } from "./modules/user/user.route.js";
 import { createAuthRouter } from "./modules/auth/auth.route.js";
 import { createQuestionRouter } from "./modules/questions/question.route.js";
 import cors from "cors";
+import { createGraphqlAnnonceHandler } from "./graphql/annonces.js";
+import { optionalAuthMiddleware } from "./middlewares/auth.middleware.js";
 
 /**
  * Construit l'application Express.
@@ -57,7 +59,6 @@ export function createApp(prisma: PrismaClient) {
 
 
   app.disable("x-powered-by");
-  app.use(express.json());
 
   // Route de vérification
   app.get("/health", (_req, res) => {
@@ -69,7 +70,7 @@ export function createApp(prisma: PrismaClient) {
   // Désactivée uniquement pendant les tests E2E.
   if (process.env.NODE_ENV !== "test") {
     app.use(
-      ["/annonces", "/users", "/auth", "/questions"],
+      ["/annonces", "/users", "/auth", "/questions", "/graphql"],
       rateLimitMiddleware.generalLimiter,
       rateLimitMiddleware.speedLimiter
     );
@@ -80,6 +81,13 @@ export function createApp(prisma: PrismaClient) {
   app.use("/users", createUserRouter(prisma));
   app.use("/auth", createAuthRouter(prisma));
   app.use("/questions", createQuestionRouter(prisma));
+
+  // API GraphQL :lectures publiques.
+  app.all(
+    "/graphql",
+    optionalAuthMiddleware,
+    createGraphqlAnnonceHandler(prisma)
+  );
 
   // Lecture de la documentation OpenAPI.
   const openapi = YAML.parse(

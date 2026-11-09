@@ -1,7 +1,7 @@
 # ImmoService
 
-API REST de gestion d'annonces immobilières développée avec Express 5,
-TypeScript, PostgreSQL, Prisma et Zod.
+API REST et GraphQL de gestion d'annonces immobilières développée avec
+Express 5, TypeScript, PostgreSQL, Prisma et Zod.
 
 Le modèle immobilier du TP1 est repris et adapté : retrait des tables Better
 Auth, ajout de `passwordHash`, de `Photo.alt` et du modèle `Reponse`. La
@@ -15,7 +15,8 @@ migration initiale est versionnée.
 - Prisma 7
 - Zod pour la validation
 - JWT pour l'authentification
-- OpenAPI 3.1 et Swagger UI
+- OpenAPI 3.1 et Swagger UI pour REST
+- GraphQL (`graphql`, `graphql-http`) et DataLoader
 - Vitest pour les tests
 - SDK TypeScript généré avec OpenAPI Generator
 
@@ -198,6 +199,76 @@ d'une annonce publiée prennent en charge la revalidation et les réponses
 `304`. Les brouillons, les données personnelles et les opérations d'écriture
 utilisent des politiques empêchant leur stockage.
 
+## API GraphQL — Annonces
+
+L'API GraphQL est accessible avec `POST /graphql` :
+<http://localhost:3001/graphql>. Elle réutilise le Repository, les services,
+les schémas Zod et les règles d'autorisation des annonces REST.
+
+**Consultation (Queries)** :
+
+- `annonces(page, limit, ville, type, prixMax)` : liste publique, paginée et filtrable ;
+- `annonce(id)` : détail d'une annonce, avec contrôle d'accès aux brouillons.
+
+Exemple de requête GraphQL pour consulter les annonces et leurs auteurs :
+
+```graphql
+query {
+  annonces(page: 1, limit: 2) {
+    data {
+      id
+      titre
+      ville
+      prix
+      auteur { id name }
+    }
+    pagination { page limit total pages }
+  }
+}
+```
+
+**Écriture (Mutations)** :
+
+- `creerAnnonce(input)` : création d'une annonce en brouillon ;
+- `modifierAnnonce(id, input)` : modification d'une annonce ;
+- `supprimerAnnonce(id)` : suppression d'une annonce ;
+- `changerStatutAnnonce(id, statut)` : publication ou retour en brouillon.
+
+Les mutations nécessitent un JWT (`Authorization: Bearer <token>`). Seuls
+les agents et administrateurs autorisés peuvent modifier les annonces ;
+les contrôles de propriété empêchent de modifier les annonces d'un autre agent.
+La validation utilise les mêmes schémas Zod que REST.
+
+Exemple de mutation :
+
+```graphql
+mutation {
+  creerAnnonce(input: {
+    titre: "Appartement T2"
+    description: "Appartement lumineux"
+    type: VENTE
+    typePropriete: APPARTEMENT
+    prix: "185000.00"
+    ville: "Le Havre"
+    surface: 45
+    chambres: 1
+  }) {
+    annonce { id titre statut }
+    erreur { code message }
+  }
+}
+```
+
+**DataLoader et N+1** : la relation `Annonce.auteur` expose uniquement
+`id` et `name`. Un DataLoader créé pour chaque requête HTTP regroupe le
+chargement des auteurs. Dans le test E2E, la requête GraphQL demandant
+les annonces **avec leurs auteurs** exécute 4 requêtes SQL pour 2 annonces
+et également 4 pour 20 annonces. Cela démontre l'absence de croissance N+1
+sur cette relation dans le scénario testé, et non sur toutes les relations.
+
+La documentation Swagger `/docs` concerne l'API REST ; les Queries et
+Mutations GraphQL sont décrites ici et dans le schéma `src/graphql/annonces.ts`.
+
 ## Contrat OpenAPI et SDK
 
 Le contrat est documenté dans `openapi.yaml`.
@@ -227,7 +298,8 @@ Les tests sont réalisés avec Vitest.
 - Tests unitaires : validation Zod, services, repository et politiques
   d'autorisation.
 - Tests E2E : authentification, CRUD, autorisations, codes HTTP, protection
-  IDOR, cache HTTP et cohérence du SDK OpenAPI.
+  IDOR, cache HTTP et cohérence du SDK OpenAPI ; tests GraphQL des Queries,
+  Mutations et de DataLoader (relation `Annonce.auteur`).
 
 La base E2E est séparée de la base de développement et configurée avec
 `DATABASE_URL_TEST`. Elle doit être préparée avec les migrations et les
@@ -264,8 +336,9 @@ npm run dev
 ## GitLab
 
 Dépôt : [web-services](https://www-apps.univ-lehavre.fr/forge/hh243545/web-services).
-La branche commune est `main` ; le développement des annonces se fait sur
-`feat/annonces`, avec intégration par merge request.
+La branche commune est `main` ; le module REST annonces a été développé sur
+`feat/annonces`, et GraphQL sur `feat/graphql-annonces`, avec intégration
+par merge request.
 
 `.env`, `node_modules/`, `dist/` et le client Prisma généré sont exclus de Git.
 Seul `.env.example`, avec ses valeurs fictives, doit être versionné.

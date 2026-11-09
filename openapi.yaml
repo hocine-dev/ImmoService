@@ -134,7 +134,559 @@ paths:
               schema:
                 $ref: "#/components/schemas/ApiError"
 
+# ──────────────────────────── AUTH ────────────────────────────
+
+  /auth/login:
+    post:
+      tags:
+        - Auth
+      summary: Se connecter
+      description: |
+        Authentifie un utilisateur à partir de son email et de son mot de passe
+        (vérifié avec Argon2) et retourne un JWT signé avec `JWT_SECRET`,
+        valable 1 jour. Le payload du token contient `id` et `role`.
+        Le même message d'erreur est renvoyé que l'email n'existe pas ou que
+        le mot de passe soit incorrect, afin de ne pas révéler l'existence
+        d'un compte. Cette route est publique et protégée par un rate limiter.
+      operationId: login
+      security: [] 
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginInput"
+            example:
+              email: mohamed@example.com
+              password: password123
+      responses:
+        "200":
+          description: Connexion réussie.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LoginResponse"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          description: Email ou mot de passe incorrect.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+              example:
+                error:
+                  code: UNAUTHORIZED
+                  message: Email ou mot de passe incorrect.
+                  details: {}
+        "429":
+          description: Limite de tentatives de connexion atteinte.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+              example:
+                error:
+                  code: RATE_LIMIT_EXCEEDED
+                  message: Trop de tentatives, réessayez plus tard
+                  details: {}
+        "500":
+          description: Erreur serveur (ex. variable d'environnement `JWT_SECRET` manquante).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+              example:
+                error:
+                  code: INTERNAL_ERROR
+                  message: Erreur interne du serveur
+                  details: {}
+
+# ────────────────────────── QUESTIONS ──────────────────────────
+
+  /questions/annonce/{annonceId}:
+    get:
+      tags:
+        - Questions
+      summary: Lister les questions d'une annonce
+      description: |
+        Retourne les questions d'une annonce avec pagination, de la plus récente
+        à la plus ancienne. Chaque question inclut son auteur (`id`, `name`)
+        et sa réponse éventuelle.
+
+        Règles d'accès :
+        - **Annonce publiée** : accès public, aucun JWT nécessaire.
+        - **Brouillon** : réservé à l'ADMIN ou à l'AGENT propriétaire de l'annonce
+          (JWT obligatoire).
+
+        Le JWT est facultatif : s'il est fourni, il est vérifié et l'identité
+        est utilisée pour appliquer les règles ci-dessus. Pour ne pas révéler
+        l'existence d'un brouillon, une annonce inexistante ou inaccessible
+        renvoie la même erreur 404.
+      operationId: listQuestionsByAnnonce
+      security:
+        - {}              # visiteur anonyme
+        - bearerAuth: []  # authentification facultative
+      parameters:
+        - name: annonceId
+          in: path
+          required: true
+          description: Identifiant de l'annonce.
+          schema:
+            type: string
+            minLength: 1
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/Limit"
+      responses:
+        "200":
+          description: Liste paginée des questions.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, data, pagination]
+                properties:
+                  status:
+                    type: string
+                    example: success
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/QuestionDetail"
+                  pagination:
+                    $ref: "#/components/schemas/Pagination"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "404":
+          description: Annonce inexistante ou inaccessible.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+              example:
+                error:
+                  code: NOT_FOUND
+                  message: Annonce introuvable
+                  details: {}
+
+  /questions/create:
+    post:
+      tags:
+        - Questions
+      summary: Poser une question sur une annonce
+      description: |
+        Crée une question sur une annonce **publiée**.
+        L'auteur est déterminé à partir du JWT, jamais à partir du body.
+        Les champs inconnus dans le body sont refusés (400).
+        Cette route est protégée par un rate limiter.
+      operationId: createQuestion
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateQuestionInput"
+            example:
+              texte: Le logement est-il disponible dès le mois prochain ?
+              annonceId: clw3f8k2a0001annonce1234567
+      responses:
+        "201":
+          description: Question créée avec succès.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, message, data]
+                properties:
+                  status:
+                    type: string
+                    example: success
+                  message:
+                    type: string
+                    example: Question posée avec succès
+                  data:
+                    $ref: "#/components/schemas/Question"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          description: Annonce inexistante ou non publiée.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+              example:
+                error:
+                  code: NOT_FOUND
+                  message: Annonce introuvable
+                  details: {}
+        "429":
+          description: Limite de questions atteinte.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+              example:
+                error:
+                  code: RATE_LIMIT_EXCEEDED
+                  message: Trop de tentatives, réessayez plus tard
+                  details: {}
+
+  /questions/{id}:
+    delete:
+      tags:
+        - Questions
+      summary: Supprimer une question
+      description: |
+        Supprime une question.
+        Seul l'auteur de la question ou un ADMIN peut effectuer cette action.
+      operationId: deleteQuestion
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Identifiant CUID de la question.
+          schema:
+            type: string
+          example: clw3f8k2a0002question123456
+      responses:
+        "200":
+          description: Question supprimée.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, message]
+                properties:
+                  status:
+                    type: string
+                    example: success
+                  message:
+                    type: string
+                    example: Question supprimée avec succès
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          description: Question introuvable.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+              example:
+                error:
+                  code: NOT_FOUND
+                  message: Question introuvable
+                  details: {}
+
+# ──────────────────────────── USERS ────────────────────────────
+
+  /api/users/getAll:
+    get:
+      tags:
+        - Users
+      summary: Récupérer tous les utilisateurs
+      description: |
+        Retourne la liste paginée des utilisateurs.
+        Accès réservé aux administrateurs (ADMIN).
+      operationId: getAllUsers
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/Limit"
+      responses:
+        "200":
+          description: Liste des utilisateurs récupérée.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/UserSummary"
+                  pagination:
+                    $ref: "#/components/schemas/Pagination"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/users/{id}:
+    get:
+      tags:
+        - Users
+      summary: Récupérer un utilisateur par son ID
+      description: |
+        Retourne le profil d'un utilisateur avec ses annonces,
+        ses favoris et les statistiques associées.
+        Un utilisateur peut consulter son propre profil.
+        Un ADMIN peut consulter tous les profils.
+      operationId: getUserById
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/UserId"
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/Limit"
+      responses:
+        "200":
+          description: Profil utilisateur récupéré.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserProfileResponse"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+    put:
+      tags:
+        - Users
+      summary: Modifier un utilisateur
+      description: |
+        Modifie les informations d'un utilisateur.
+        Seul le propriétaire du compte ou un ADMIN peut effectuer cette action.
+        Seul un ADMIN peut modifier le rôle d'un utilisateur.
+      operationId: updateUser
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/UserId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateUserInput"
+            example:
+              name: Mohamed Sanogo
+              email: mohamed@example.com
+      responses:
+        "200":
+          description: Utilisateur mis à jour.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Utilisateur mis à jour avec succès
+                  data:
+                    $ref: "#/components/schemas/User"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+    delete:
+      tags:
+        - Users
+      summary: Supprimer un utilisateur
+      description: |
+        Supprime un compte utilisateur.
+        Seul le propriétaire du compte ou un ADMIN peut effectuer cette action.
+      operationId: deleteUser
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/UserId"
+      responses:
+        "200":
+          description: Utilisateur supprimé.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Utilisateur supprimé avec succès
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/users/register:
+    post:
+      tags:
+        - Users
+      summary: Inscrire un nouvel utilisateur
+      description: |
+        Crée un compte utilisateur.
+        Le mot de passe est haché avec Argon2 avant stockage.
+        Le rôle est automatiquement défini à USER.
+        Cette route est publique et protégée par un rate limiter.
+      operationId: registerUser
+      security: []  # Route publique
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateUserInput"
+            example:
+              name: Mohamed Sanogo
+              email: mohamed@example.com
+              password: password123
+      responses:
+        "201":
+          description: Utilisateur créé avec succès.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Utilisateur créé avec succès
+                  data:
+                    $ref: "#/components/schemas/User"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "409":
+          description: Adresse email déjà utilisée.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+              example:
+                error:
+                  code: CONFLICT
+                  message: Cet email est déjà utilisé
+                  details:
+                    email:
+                      - Cet email est déjà associé à un autre compte.
+        "429":
+          description: Limite de tentatives d'inscription atteinte.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+              example:
+                error:
+                  code: RATE_LIMIT_EXCEEDED
+                  message: Trop de tentatives, réessayez plus tard
+                  details: {}
+
+
 components:
+  parameters:
+    UserId:
+      name: id
+      in: path
+      required: true
+      description: Identifiant CUID de l'utilisateur.
+      schema:
+        type: string
+      example: clw3f8k2a0000qwerty1234567
+
+    Page:
+      name: page
+      in: query
+      required: false
+      description: Numéro de page (à partir de 1).
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 10000
+        default: 1
+
+    Limit:
+      name: limit
+      in: query
+      required: false
+      description: Nombre d'éléments par page (maximum 100).
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 10
+  responses:
+    Unauthorized:
+      description: Authentification requise.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+          example:
+            error:
+              code: UNAUTHORIZED
+              message: Authentification requise
+              details: {}
+
+    Forbidden:
+      description: Accès refusé.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+          example:
+            error:
+              code: FORBIDDEN
+              message: Accès refusé
+              details: {}
+
+    NotFound:
+      description: Ressource introuvable.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+          example:
+            error:
+              code: NOT_FOUND
+              message: Utilisateur introuvable
+              details: {}
+
+    ValidationError:
+      description: Données ou paramètres invalides.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+          example:
+            error:
+              code: VALIDATION_ERROR
+              message: Données invalides
+              details:
+                id:
+                  - Identifiant invalide
+
   schemas:
     AnnonceDetail:
       allOf:
@@ -232,3 +784,224 @@ components:
                 type: array
                 items:
                   type: string
+# ── Auth---
+    LoginInput:
+      type: object
+      required:
+        - email
+        - password
+      properties:
+        email:
+          type: string
+          format: email
+          example: mohamed@example.com
+        password:
+          type: string
+          minLength: 1
+          format: password
+          example: password123
+
+    LoginResponse:
+      type: object
+      required: [status, message, data]
+      properties:
+        status:
+          type: string
+          example: success
+        message:
+          type: string
+          example: Connexion réussie
+        data:
+          type: object
+          required: [token, user]
+          properties:
+            token:
+              type: string
+              description: JWT signé (expire au bout de 1 jour), à envoyer dans `Authorization Bearer`.
+              example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+            user:
+              $ref: "#/components/schemas/User"
+
+# ── Questions ──
+
+    Question:
+      type: object
+      required: [id, texte, createdAt, auteurId, annonceId]
+      properties:
+        id:
+          type: string
+          example: clw3f8k2a0002question123456
+        texte:
+          type: string
+          example: Le logement est-il disponible dès le mois prochain ?
+        createdAt:
+          type: string
+          format: date-time
+        auteurId:
+          type: string
+          description: Identifiant de l'auteur (issu du JWT).
+        annonceId:
+          type: string
+
+    QuestionDetail:
+      allOf:
+        - $ref: "#/components/schemas/Question"
+        - type: object
+          required: [auteur, reponse]
+          properties:
+            auteur:
+              type: object
+              required: [id, name]
+              properties:
+                id:
+                  type: string
+                name:
+                  type: string
+            reponse:
+              description: Réponse à la question, `null` si aucune réponse n'a été donnée.
+              type: [object, "null"]
+              additionalProperties: true
+
+    CreateQuestionInput:
+      type: object
+      additionalProperties: false
+      required: [texte, annonceId]
+      properties:
+        texte:
+          type: string
+          minLength: 1
+          description: Texte de la question (espaces de début et de fin retirés).
+        annonceId:
+          type: string
+          minLength: 1
+          description: Identifiant de l'annonce publiée concernée.
+
+# ── Users ──
+
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          example: clw3f8k2a0000qwerty1234567
+        name:
+          type: string
+          example: Mohamed Sanogo
+        email:
+          type: string
+          format: email
+          example: mohamed@example.com
+        role:
+          type: string
+          enum: [USER, AGENT, ADMIN]
+          example: USER
+        createdAt:
+          type: string
+          format: date-time
+          example: "2026-10-20T10:30:00.000Z"
+        updatedAt:
+          type: string
+          format: date-time
+          example: "2026-10-22T15:30:00.000Z"
+
+    UserSummary:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        email:
+          type: string
+          format: email
+        role:
+          type: string
+          enum: [USER, AGENT, ADMIN]
+        createdAt:
+          type: string
+          format: date-time
+
+    CreateUserInput:
+      type: object
+      required:
+        - name
+        - email
+        - password
+      properties:
+        name:
+          type: string
+          minLength: 2
+          example: Mohamed Sanogo
+        email:
+          type: string
+          format: email
+          example: mohamed@example.com
+        password:
+          type: string
+          minLength: 6
+          format: password
+          example: password123
+
+    UpdateUserInput:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 2
+          example: Mohamed Sanogo
+        email:
+          type: string
+          format: email
+          example: mohamed@example.com
+        role:
+          type: string
+          enum: [USER, AGENT, ADMIN]
+          description: Seul un ADMIN peut modifier ce champ.
+
+    UserProfileResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          allOf:
+            - $ref: "#/components/schemas/User"
+            - type: object
+              properties:
+                annonces:
+                  type: array
+                  description: Annonces de l'utilisateur pour la page demandée.
+                  items:
+                    type: object
+                    additionalProperties: true
+                favoris:
+                  type: array
+                  description: Favoris de l'utilisateur pour la page demandée.
+                  items:
+                    type: object
+                    additionalProperties: true
+                pagination:
+                  type: object
+                  properties:
+                    annonces:
+                      $ref: "#/components/schemas/Pagination"
+                    favoris:
+                      $ref: "#/components/schemas/Pagination"
+    Pagination:
+      type: object
+      required: [page, limit, total, pages]
+      properties:
+        page:
+          type: integer
+          example: 1
+        limit:
+          type: integer
+          example: 10
+        total:
+          type: integer
+          example: 50
+        pages:
+          type: integer
+          example: 5
+

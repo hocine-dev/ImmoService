@@ -191,7 +191,7 @@ paths:
                   message: Trop de tentatives, réessayez plus tard
                   details: {}
         "500":
-          description: Erreur serveur (ex. variable d'environnement `JWT_SECRET` manquante).
+          description: Erreur serveur.
           content:
             application/json:
               schema:

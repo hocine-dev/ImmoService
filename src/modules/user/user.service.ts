@@ -15,7 +15,7 @@ export type DataType = {
 }
 
 export function createUserService(prisma: PrismaClient) {
-  return {
+  return {    
     // GET : Récupérer tous les utilisateurs
     async getAllUsers(role: Role, page: number, limit: number) {
       if (role !== Role.ADMIN) return null;

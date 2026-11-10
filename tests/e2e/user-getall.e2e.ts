@@ -3,8 +3,7 @@ import { AuthApi, Configuration, UsersApi } from "../../sdk/index.js";
 
 const baseUrl = "http://localhost:3002";
 
-// En-tête Authorization envoyé explicitement : fonctionne même si
-// `securitySchemes` n'est pas déclaré dans openapi.yaml.
+
 const usersApi = (token?: string) =>
     new UsersApi(new Configuration({
         basePath: baseUrl,

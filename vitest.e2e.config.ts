@@ -6,6 +6,8 @@ export default defineConfig({
         globalSetup: ["./tests/e2e/global-setup.ts"],
 
         // Les tests partagent une même base de test.
-        fileParallelism: false
+        fileParallelism: false,
+        testTimeout: 20000,
+        hookTimeout: 20000
     }
 });

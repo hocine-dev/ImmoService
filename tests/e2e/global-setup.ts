@@ -52,7 +52,7 @@ export default async function setup() {
     }
 
     // Empêcher de réutiliser la base de développement.
-/*    if (process.env.DATABASE_URL) {
+    if (process.env.DATABASE_URL) {
         const devDb = new URL(process.env.DATABASE_URL);
 
         const sameDatabase =
@@ -66,7 +66,7 @@ export default async function setup() {
             );
         }
     }
-*/
+
     await verifyPortFree();
 
     // Serveur enfant : DATABASE_URL forcée vers la base de test.

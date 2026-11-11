@@ -2,7 +2,7 @@
 
 ## Utilisation de l'IA
 
-nous avons utilisé l'IA comme aide au développement, notamment pour générer certaines fonctions, organiser les services et proposer des validations. Nous avons ensuite revu et corrigé le code pendant l'intégration avec le reste du projet.
+Nous avons utilisé l'IA comme aide au développement, notamment pour générer certaines fonctions, organiser les services et proposer des validations. Nous avons ensuite revu et corrigé le code pendant l'intégration avec le reste du projet.
 
 ## Quatre erreurs rencontrées
 
@@ -17,6 +17,10 @@ Certaines règles ne prenaient pas suffisamment en compte les brouillons et la p
 **3. Des requêtes sans pagination**
 
 Les services récupéraient parfois tous les utilisateurs, toutes les questions ou toutes les relations d'un profil. Avec beaucoup de données, cela pouvait provoquer des requêtes coûteuses. Nous avons ajouté une pagination côté serveur, limitée à 100 résultats par page.
+
+**4. Des accès supplémentaires inutiles à la base de données lors des modifications d'annonces**
+
+Pour modifier une annonce, le code proposé utilisait `updateMany()` puis `findUnique()` afin de récupérer l'annonce actualisée et changer son statut, même lorsqu'une seule mise à jour suffisait pour récupérer le résultat. Nous avons remplacé cette approche par `update()` avec les mêmes conditions d'autorisation (`id` et `...scope`), et une gestion explicite de l'erreur `P2025` lorsqu'aucune annonce ne correspond. Cela permet de modifier et de récupérer l'annonce en une seule opération Prisma.
 
 ## Deux choix que nous avons rejetés
 

@@ -237,67 +237,68 @@ export function createAnnonceRepository(
         if (scope === null) {
             return null;
         }
-        const result = await prisma.annonce.updateMany({
-            where: {
-                id,
 
-                ...scope
-            },
+        try {
+            // Modification atomique avec vérification du propriétaire.
+            // update() retourne directement l'annonce modifiée.
+            const annonce = await prisma.annonce.update({
+                where: {
+                    id,
+                    ...scope
+                },
 
-            data: {
-                // Seuls les champs présents seront modifiés.
-                titre: input.titre,
-                description: input.description,
-                type: input.type,
-                typePropriete: input.typePropriete,
-                ville: input.ville,
-                surface: input.surface,
-                chambres: input.chambres,
-                etat: input.etat,
+                data: {
+                    // Seuls les champs présents seront modifiés.
+                    titre: input.titre,
+                    description: input.description,
+                    type: input.type,
+                    typePropriete: input.typePropriete,
+                    ville: input.ville,
+                    surface: input.surface,
+                    chambres: input.chambres,
+                    etat: input.etat,
 
-                // Conversion du prix en Decimal pour Prisma.
-                prix: input.prix === undefined
-                    ? undefined
-                    : new Prisma.Decimal(input.prix),
+                    // Conversion du prix en Decimal pour Prisma.
+                    prix: input.prix === undefined
+                        ? undefined
+                        : new Prisma.Decimal(input.prix),
 
-                // Conversion ISO 8601 vers Date.
-                dateDisponibilite: input.dateDisponibilite === undefined
-                    ? undefined
-                    : new Date(input.dateDisponibilite)
+                    // Conversion ISO 8601 vers Date.
+                    dateDisponibilite: input.dateDisponibilite === undefined
+                        ? undefined
+                        : new Date(input.dateDisponibilite)
+                },
+
+                // Récupérer également les photos de l'annonce.
+                include: {
+                    photos: true
+                }
+            });
+
+            // Même format JSON que précédemment.
+            return {
+                ...annonce,
+                prix: annonce.prix.toFixed(2),
+                dateDisponibilite:
+                    annonce.dateDisponibilite?.toISOString() ?? null,
+                createdAt: annonce.createdAt.toISOString(),
+                updatedAt: annonce.updatedAt.toISOString()
+            };
+
+        } catch (error) {
+            // Annonce inexistante ou appartenant à un autre agent.
+            if (
+                error instanceof Prisma.PrismaClientKnownRequestError &&
+                error.code === "P2025"
+            ) {
+                return null;
             }
-        });
 
-        /**
-         * Aucune ligne modifiée :
-         * - annonce inexistante ;
-         * - ou annonce appartenant à un autre agent.
-         *
-         * Dans les deux cas, on retourne null.
-         */
-        if (result.count === 0) {
-            return null;
+            // Toute autre erreur doit remonter au gestionnaire global.
+            throw error;
         }
-
-        // Récupérer l'annonce actualisée avec ses photos.
-        const annonce = await prisma.annonce.findUnique({
-            where: { id },
-            include: { photos: true }
-        });
-
-        if (!annonce) {
-            return null;
-        }
-
-        // Même format JSON que POST /annonces.
-        return {
-            ...annonce,
-            prix: annonce.prix.toFixed(2),
-            dateDisponibilite:
-                annonce.dateDisponibilite?.toISOString() ?? null,
-            createdAt: annonce.createdAt.toISOString(),
-            updatedAt: annonce.updatedAt.toISOString()
-        };
     }
+
 
 
     /**
@@ -349,13 +350,13 @@ export function createAnnonceRepository(
      * Protection IDOR : un agent ne peut modifier
      * que ses propres annonces.
      */
+
     async function changeStatutAnnonce(
         id: string,
         statut: ChangeStatutAnnonceRequest["body"]["statut"],
         utilisateurId: string,
         isAdmin: boolean
     ) {
-        // Modifier uniquement si le statut est différent.
         const scope = getAnnonceWriteScope({
             id: utilisateurId,
             role: isAdmin ? "ADMIN" : "AGENT"
@@ -365,40 +366,47 @@ export function createAnnonceRepository(
             return null;
         }
 
-        const result = await prisma.annonce.updateMany({
-            where: {
-                id,
+        const select = {
+            id: true,
+            statut: true,
+            auteurId: true,
+            updatedAt: true
+        } as const;
 
-                ...scope,
+        try {
+            // Modifier seulement si le statut est différent.
+            // L'autorisation est vérifiée dans la même opération.
+            return await prisma.annonce.update({
+                where: {
+                    id,
+                    ...scope,
+                    statut: { not: statut }
+                },
+                data: { statut },
+                select
+            });
 
-                // Empêche une modification inutile.
-                statut: { not: statut }
-            },
-            data: {
-                statut
+        } catch (error) {
+            if (
+                error instanceof Prisma.PrismaClientKnownRequestError &&
+                error.code === "P2025"
+            ) {
+                // P2025 peut aussi signifier que le statut
+                // demandé est déjà celui de l'annonce.
+                // On vérifie donc si elle est accessible.
+                return prisma.annonce.findFirst({
+                    where: {
+                        id,
+                        ...scope
+                    },
+                    select
+                });
             }
-        });
 
-        // Récupérer l'annonce uniquement si elle est
-        // accessible à cet utilisateur.
-        const annonce = await prisma.annonce.findFirst({
-            where: {
-                id,
-                ...scope
-            },
-            select: {
-                id: true,
-                statut: true,
-                auteurId: true,
-                updatedAt: true
-            }
-        });
-
-        // Aucune annonce trouvée ou accessible : null.
-        // Si le statut était déjà correct, l'annonce
-        // est retournée sans avoir été modifiée.
-        return annonce;
+            throw error;
+        }
     }
+
 
 
     /**

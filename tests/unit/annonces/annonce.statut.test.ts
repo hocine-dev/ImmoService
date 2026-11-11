@@ -1,6 +1,9 @@
 
 import { describe, it, expect, vi } from "vitest";
 
+import { Prisma } from
+    "../../../src/generated/prisma/client.js";
+
 import type { PrismaClient } from
     "../../../src/generated/prisma/client.js";
 
@@ -14,19 +17,29 @@ function createRepositoryMock(
     count: number,
     annonce: object | null
 ) {
-    const updateMany = vi.fn().mockResolvedValue({ count });
+    const update = count > 0
+        ? vi.fn().mockResolvedValue(annonce)
+        : vi.fn().mockRejectedValue(
+            new Prisma.PrismaClientKnownRequestError(
+                "An operation failed because it depends on one or more records that were required but not found.",
+                {
+                    code: "P2025",
+                    clientVersion: "test"
+                }
+            )
+        );
     const findFirst = vi.fn().mockResolvedValue(annonce);
 
     const prisma = {
         annonce: {
-            updateMany,
+            update,
             findFirst
         }
     } as unknown as PrismaClient;
 
     return {
         repository: createAnnonceRepository(prisma),
-        updateMany,
+        update,
         findFirst
     };
 }
@@ -41,7 +54,7 @@ const annoncePubliee = {
 describe("Publication et dépublication - Tests unitaires", () => {
 
     it("autorise un agent à publier sa propre annonce", async () => {
-        const { repository, updateMany } =
+        const { repository, update } =
             createRepositoryMock(1, annoncePubliee);
 
         const result = await repository.changeStatutAnnonce(
@@ -54,7 +67,7 @@ describe("Publication et dépublication - Tests unitaires", () => {
         expect(result?.statut).toBe("PUBLIE");
 
         // Vérifier le propriétaire et le statut précédent.
-        expect(updateMany).toHaveBeenCalledWith({
+        expect(update).toHaveBeenCalledWith({
             where: {
                 id: "annonce-1",
                 auteurId: "agent-1",
@@ -62,6 +75,12 @@ describe("Publication et dépublication - Tests unitaires", () => {
             },
             data: {
                 statut: "PUBLIE"
+            },
+            select: {
+                id: true,
+                statut: true,
+                auteurId: true,
+                updatedAt: true
             }
         });
     });
@@ -72,7 +91,7 @@ describe("Publication et dépublication - Tests unitaires", () => {
             statut: "BROUILLON"
         };
 
-        const { repository, updateMany } =
+        const { repository, update } =
             createRepositoryMock(1, annonceBrouillon);
 
         const result = await repository.changeStatutAnnonce(
@@ -84,7 +103,7 @@ describe("Publication et dépublication - Tests unitaires", () => {
 
         expect(result?.statut).toBe("BROUILLON");
 
-        expect(updateMany).toHaveBeenCalledWith({
+        expect(update).toHaveBeenCalledWith({
             where: {
                 id: "annonce-1",
                 auteurId: "agent-1",
@@ -92,13 +111,19 @@ describe("Publication et dépublication - Tests unitaires", () => {
             },
             data: {
                 statut: "BROUILLON"
+            },
+            select: {
+                id: true,
+                statut: true,
+                auteurId: true,
+                updatedAt: true
             }
         });
     });
 
     it("évite de modifier une annonce déjà publiée", async () => {
         // count = 0 : aucune ligne modifiée par Prisma.
-        const { repository, updateMany, findFirst } =
+        const { repository, update, findFirst } =
             createRepositoryMock(0, annoncePubliee);
 
         const result = await repository.changeStatutAnnonce(
@@ -112,7 +137,7 @@ describe("Publication et dépublication - Tests unitaires", () => {
         expect(result?.statut).toBe("PUBLIE");
 
         // La condition exclut les annonces déjà publiées.
-        expect(updateMany).toHaveBeenCalledWith({
+        expect(update).toHaveBeenCalledWith({
             where: {
                 id: "annonce-1",
                 auteurId: "agent-1",
@@ -120,6 +145,12 @@ describe("Publication et dépublication - Tests unitaires", () => {
             },
             data: {
                 statut: "PUBLIE"
+            },
+            select: {
+                id: true,
+                statut: true,
+                auteurId: true,
+                updatedAt: true
             }
         });
 
@@ -139,7 +170,7 @@ describe("Publication et dépublication - Tests unitaires", () => {
     });
 
     it("autorise un administrateur à changer le statut", async () => {
-        const { repository, updateMany } =
+        const { repository, update } =
             createRepositoryMock(1, annoncePubliee);
 
         const result = await repository.changeStatutAnnonce(
@@ -152,19 +183,25 @@ describe("Publication et dépublication - Tests unitaires", () => {
         expect(result?.statut).toBe("PUBLIE");
 
         // ADMIN n'est pas limité par auteurId.
-        expect(updateMany).toHaveBeenCalledWith({
+        expect(update).toHaveBeenCalledWith({
             where: {
                 id: "annonce-1",
                 statut: { not: "PUBLIE" }
             },
             data: {
                 statut: "PUBLIE"
+            },
+            select: {
+                id: true,
+                statut: true,
+                auteurId: true,
+                updatedAt: true
             }
         });
     });
 
     it("empêche un agent de changer le statut d'un autre (IDOR)", async () => {
-        const { repository, updateMany, findFirst } =
+        const { repository, update, findFirst } =
             createRepositoryMock(0, null);
 
         const result = await repository.changeStatutAnnonce(
@@ -177,7 +214,7 @@ describe("Publication et dépublication - Tests unitaires", () => {
         expect(result).toBeNull();
 
         // La protection auteurId reste présente.
-        expect(updateMany).toHaveBeenCalledWith({
+        expect(update).toHaveBeenCalledWith({
             where: {
                 id: "annonce-1",
                 auteurId: "agent-2",
@@ -185,6 +222,12 @@ describe("Publication et dépublication - Tests unitaires", () => {
             },
             data: {
                 statut: "PUBLIE"
+            },
+            select: {
+                id: true,
+                statut: true,
+                auteurId: true,
+                updatedAt: true
             }
         });
 

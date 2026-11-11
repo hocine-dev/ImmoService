@@ -14,26 +14,114 @@
 
 import * as runtime from '../runtime.js';
 import {
+    type AnnonceCreee,
+    AnnonceCreeeFromJSON,
+    AnnonceCreeeToJSON,
+} from '../models/AnnonceCreee.js';
+import {
     type AnnonceDetail,
     AnnonceDetailFromJSON,
     AnnonceDetailToJSON,
 } from '../models/AnnonceDetail.js';
+import {
+    type AnnonceModifiee,
+    AnnonceModifieeFromJSON,
+    AnnonceModifieeToJSON,
+} from '../models/AnnonceModifiee.js';
 import {
     type ApiError,
     ApiErrorFromJSON,
     ApiErrorToJSON,
 } from '../models/ApiError.js';
 import {
+    type ChangeStatutAnnonce200Response,
+    ChangeStatutAnnonce200ResponseFromJSON,
+    ChangeStatutAnnonce200ResponseToJSON,
+} from '../models/ChangeStatutAnnonce200Response.js';
+import {
+    type ChangeStatutAnnonceRequest,
+    ChangeStatutAnnonceRequestFromJSON,
+    ChangeStatutAnnonceRequestToJSON,
+} from '../models/ChangeStatutAnnonceRequest.js';
+import {
+    type CreateAnnonceInput,
+    CreateAnnonceInputFromJSON,
+    CreateAnnonceInputToJSON,
+} from '../models/CreateAnnonceInput.js';
+import {
+    type GetMesAnnonces200Response,
+    GetMesAnnonces200ResponseFromJSON,
+    GetMesAnnonces200ResponseToJSON,
+} from '../models/GetMesAnnonces200Response.js';
+import {
     type ListAnnonces200Response,
     ListAnnonces200ResponseFromJSON,
     ListAnnonces200ResponseToJSON,
 } from '../models/ListAnnonces200Response.js';
+import {
+    type UpdateAnnonceInput,
+    UpdateAnnonceInputFromJSON,
+    UpdateAnnonceInputToJSON,
+} from '../models/UpdateAnnonceInput.js';
+
+export interface ChangeStatutAnnonceOperationRequest {
+    /**
+     * Identifiant de l'annonce.
+     */
+    id: string;
+    /**
+     * 
+     */
+    changeStatutAnnonceRequest: ChangeStatutAnnonceRequest;
+}
+
+export interface CreateAnnonceRequest {
+    /**
+     * 
+     */
+    createAnnonceInput: CreateAnnonceInput;
+}
+
+export interface DeleteAnnonceRequest {
+    /**
+     * Identifiant de l'annonce à supprimer.
+     */
+    id: string;
+}
 
 export interface GetAnnonceByIdRequest {
     /**
      * Identifiant de l'annonce.
      */
     id: string;
+}
+
+export interface GetMesAnnoncesRequest {
+    /**
+     * Numéro de page.
+     */
+    page?: number;
+    /**
+     * Nombre d'annonces par page.
+     */
+    limit?: number;
+    /**
+     * Filtrer par ville.
+     */
+    ville?: string;
+    /**
+     * Type de transaction.
+     */
+    type?: GetMesAnnoncesTypeEnum;
+    /**
+     * Prix maximal sous forme de chaîne décimale non négative, avec au plus deux décimales.
+     * 
+     */
+    prixMax?: string;
+    /**
+     * Filtrer par statut de publication.
+     */
+    statut?: GetMesAnnoncesStatutEnum;
 }
 
 export interface ListAnnoncesRequest {
@@ -54,15 +142,203 @@ export interface ListAnnoncesRequest {
      */
     type?: ListAnnoncesTypeEnum;
     /**
-     * Prix maximal des annonces.
+     * Prix maximal sous forme de chaîne décimale non négative, avec au plus deux décimales.
+     * 
      */
-    prixMax?: number;
+    prixMax?: string;
+}
+
+export interface UpdateAnnonceRequest {
+    /**
+     * Identifiant de l'annonce à modifier.
+     */
+    id: string;
+    /**
+     * 
+     */
+    updateAnnonceInput: UpdateAnnonceInput;
 }
 
 /**
  * 
  */
 export class AnnoncesApi extends runtime.BaseAPI {
+
+    /**
+     * Creates request options for changeStatutAnnonce without sending the request
+     */
+    async changeStatutAnnonceRequestOpts(requestParameters: ChangeStatutAnnonceOperationRequest): Promise<runtime.RequestOpts> {
+        if (requestParameters['id'] == null) {
+            throw new runtime.RequiredError(
+                'id',
+                'Required parameter "id" was null or undefined when calling changeStatutAnnonce().'
+            );
+        }
+
+        if (requestParameters['changeStatutAnnonceRequest'] == null) {
+            throw new runtime.RequiredError(
+                'changeStatutAnnonceRequest',
+                'Required parameter "changeStatutAnnonceRequest" was null or undefined when calling changeStatutAnnonce().'
+            );
+        }
+
+        const queryParameters: any = {};
+
+        const headerParameters: runtime.HTTPHeaders = {};
+
+        headerParameters['Content-Type'] = 'application/json';
+
+        if (this.configuration && this.configuration.accessToken) {
+            const token = this.configuration.accessToken;
+            const tokenString = await token("bearerAuth", []);
+
+            if (tokenString) {
+                headerParameters["Authorization"] = `Bearer ${tokenString}`;
+            }
+        }
+
+        let urlPath = `/annonces/{id}/statut`;
+        urlPath = urlPath.replace('{id}', encodeURIComponent(String(requestParameters['id'])));
+
+        return {
+            path: urlPath,
+            method: 'PATCH',
+            headers: headerParameters,
+            query: queryParameters,
+            body: ChangeStatutAnnonceRequestToJSON(requestParameters['changeStatutAnnonceRequest']),
+        };
+    }
+
+    /**
+     * Permet à un agent de publier ou dépublier ses propres annonces. Un administrateur peut modifier le statut de toutes les annonces. Si le statut demandé est déjà celui de l\'annonce, aucune modification n\'est effectuée dans la base de données. 
+     * Publier ou dépublier une annonce
+     */
+    async changeStatutAnnonceRaw(requestParameters: ChangeStatutAnnonceOperationRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<ChangeStatutAnnonce200Response>> {
+        const requestOptions = await this.changeStatutAnnonceRequestOpts(requestParameters);
+        const response = await this.request(requestOptions, initOverrides);
+
+        return new runtime.JSONApiResponse(response, (jsonValue) => ChangeStatutAnnonce200ResponseFromJSON(jsonValue));
+    }
+
+    /**
+     * Permet à un agent de publier ou dépublier ses propres annonces. Un administrateur peut modifier le statut de toutes les annonces. Si le statut demandé est déjà celui de l\'annonce, aucune modification n\'est effectuée dans la base de données. 
+     * Publier ou dépublier une annonce
+     */
+    async changeStatutAnnonce(requestParameters: ChangeStatutAnnonceOperationRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<ChangeStatutAnnonce200Response> {
+        const response = await this.changeStatutAnnonceRaw(requestParameters, initOverrides);
+        return await response.value();
+    }
+
+    /**
+     * Creates request options for createAnnonce without sending the request
+     */
+    async createAnnonceRequestOpts(requestParameters: CreateAnnonceRequest): Promise<runtime.RequestOpts> {
+        if (requestParameters['createAnnonceInput'] == null) {
+            throw new runtime.RequiredError(
+                'createAnnonceInput',
+                'Required parameter "createAnnonceInput" was null or undefined when calling createAnnonce().'
+            );
+        }
+
+        const queryParameters: any = {};
+
+        const headerParameters: runtime.HTTPHeaders = {};
+
+        headerParameters['Content-Type'] = 'application/json';
+
+        if (this.configuration && this.configuration.accessToken) {
+            const token = this.configuration.accessToken;
+            const tokenString = await token("bearerAuth", []);
+
+            if (tokenString) {
+                headerParameters["Authorization"] = `Bearer ${tokenString}`;
+            }
+        }
+
+        let urlPath = `/annonces`;
+
+        return {
+            path: urlPath,
+            method: 'POST',
+            headers: headerParameters,
+            query: queryParameters,
+            body: CreateAnnonceInputToJSON(requestParameters['createAnnonceInput']),
+        };
+    }
+
+    /**
+     * Permet à un AGENT ou un ADMIN authentifié de créer une annonce. L\'identifiant de l\'auteur est récupéré depuis le JWT. Le statut initial est toujours BROUILLON. 
+     * Créer une annonce immobilière
+     */
+    async createAnnonceRaw(requestParameters: CreateAnnonceRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<AnnonceCreee>> {
+        const requestOptions = await this.createAnnonceRequestOpts(requestParameters);
+        const response = await this.request(requestOptions, initOverrides);
+
+        return new runtime.JSONApiResponse(response, (jsonValue) => AnnonceCreeeFromJSON(jsonValue));
+    }
+
+    /**
+     * Permet à un AGENT ou un ADMIN authentifié de créer une annonce. L\'identifiant de l\'auteur est récupéré depuis le JWT. Le statut initial est toujours BROUILLON. 
+     * Créer une annonce immobilière
+     */
+    async createAnnonce(requestParameters: CreateAnnonceRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<AnnonceCreee> {
+        const response = await this.createAnnonceRaw(requestParameters, initOverrides);
+        return await response.value();
+    }
+
+    /**
+     * Creates request options for deleteAnnonce without sending the request
+     */
+    async deleteAnnonceRequestOpts(requestParameters: DeleteAnnonceRequest): Promise<runtime.RequestOpts> {
+        if (requestParameters['id'] == null) {
+            throw new runtime.RequiredError(
+                'id',
+                'Required parameter "id" was null or undefined when calling deleteAnnonce().'
+            );
+        }
+
+        const queryParameters: any = {};
+
+        const headerParameters: runtime.HTTPHeaders = {};
+
+        if (this.configuration && this.configuration.accessToken) {
+            const token = this.configuration.accessToken;
+            const tokenString = await token("bearerAuth", []);
+
+            if (tokenString) {
+                headerParameters["Authorization"] = `Bearer ${tokenString}`;
+            }
+        }
+
+        let urlPath = `/annonces/{id}`;
+        urlPath = urlPath.replace('{id}', encodeURIComponent(String(requestParameters['id'])));
+
+        return {
+            path: urlPath,
+            method: 'DELETE',
+            headers: headerParameters,
+            query: queryParameters,
+        };
+    }
+
+    /**
+     * Un agent peut supprimer uniquement ses propres annonces. Un administrateur peut supprimer toutes les annonces. La suppression est définitive et entraîne également la suppression des photos, questions, réponses et favoris associés, conformément aux relations Prisma. 
+     * Supprimer une annonce
+     */
+    async deleteAnnonceRaw(requestParameters: DeleteAnnonceRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<void>> {
+        const requestOptions = await this.deleteAnnonceRequestOpts(requestParameters);
+        const response = await this.request(requestOptions, initOverrides);
+
+        return new runtime.VoidApiResponse(response);
+    }
+
+    /**
+     * Un agent peut supprimer uniquement ses propres annonces. Un administrateur peut supprimer toutes les annonces. La suppression est définitive et entraîne également la suppression des photos, questions, réponses et favoris associés, conformément aux relations Prisma. 
+     * Supprimer une annonce
+     */
+    async deleteAnnonce(requestParameters: DeleteAnnonceRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<void> {
+        await this.deleteAnnonceRaw(requestParameters, initOverrides);
+    }
 
     /**
      * Creates request options for getAnnonceById without sending the request
@@ -79,6 +355,14 @@ export class AnnoncesApi extends runtime.BaseAPI {
 
         const headerParameters: runtime.HTTPHeaders = {};
 
+        if (this.configuration && this.configuration.accessToken) {
+            const token = this.configuration.accessToken;
+            const tokenString = await token("bearerAuth", []);
+
+            if (tokenString) {
+                headerParameters["Authorization"] = `Bearer ${tokenString}`;
+            }
+        }
 
         let urlPath = `/annonces/{id}`;
         urlPath = urlPath.replace('{id}', encodeURIComponent(String(requestParameters['id'])));
@@ -92,6 +376,7 @@ export class AnnoncesApi extends runtime.BaseAPI {
     }
 
     /**
+     * Les annonces publiées sont accessibles publiquement. Les brouillons sont accessibles uniquement à leur auteur ou aux administrateurs. 
      * Consulter le détail d\'une annonce publiée
      */
     async getAnnonceByIdRaw(requestParameters: GetAnnonceByIdRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<AnnonceDetail>> {
@@ -102,10 +387,82 @@ export class AnnoncesApi extends runtime.BaseAPI {
     }
 
     /**
+     * Les annonces publiées sont accessibles publiquement. Les brouillons sont accessibles uniquement à leur auteur ou aux administrateurs. 
      * Consulter le détail d\'une annonce publiée
      */
     async getAnnonceById(requestParameters: GetAnnonceByIdRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<AnnonceDetail> {
         const response = await this.getAnnonceByIdRaw(requestParameters, initOverrides);
+        return await response.value();
+    }
+
+    /**
+     * Creates request options for getMesAnnonces without sending the request
+     */
+    async getMesAnnoncesRequestOpts(requestParameters: GetMesAnnoncesRequest): Promise<runtime.RequestOpts> {
+        const queryParameters: any = {};
+
+        if (requestParameters['page'] != null) {
+            queryParameters['page'] = requestParameters['page'];
+        }
+
+        if (requestParameters['limit'] != null) {
+            queryParameters['limit'] = requestParameters['limit'];
+        }
+
+        if (requestParameters['ville'] != null) {
+            queryParameters['ville'] = requestParameters['ville'];
+        }
+
+        if (requestParameters['type'] != null) {
+            queryParameters['type'] = requestParameters['type'];
+        }
+
+        if (requestParameters['prixMax'] != null) {
+            queryParameters['prixMax'] = requestParameters['prixMax'];
+        }
+
+        if (requestParameters['statut'] != null) {
+            queryParameters['statut'] = requestParameters['statut'];
+        }
+
+        const headerParameters: runtime.HTTPHeaders = {};
+
+        if (this.configuration && this.configuration.accessToken) {
+            const token = this.configuration.accessToken;
+            const tokenString = await token("bearerAuth", []);
+
+            if (tokenString) {
+                headerParameters["Authorization"] = `Bearer ${tokenString}`;
+            }
+        }
+
+        let urlPath = `/annonces/miennes`;
+
+        return {
+            path: urlPath,
+            method: 'GET',
+            headers: headerParameters,
+            query: queryParameters,
+        };
+    }
+
+    /**
+     * Retourne les annonces appartenant à l\'utilisateur authentifié, y compris les brouillons. Accessible uniquement aux rôles AGENT et ADMIN. L\'identifiant du propriétaire est extrait du JWT. Sans filtre statut, les deux statuts sont inclus. 
+     * Lister mes annonces
+     */
+    async getMesAnnoncesRaw(requestParameters: GetMesAnnoncesRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<GetMesAnnonces200Response>> {
+        const requestOptions = await this.getMesAnnoncesRequestOpts(requestParameters);
+        const response = await this.request(requestOptions, initOverrides);
+
+        return new runtime.JSONApiResponse(response, (jsonValue) => GetMesAnnonces200ResponseFromJSON(jsonValue));
+    }
+
+    /**
+     * Retourne les annonces appartenant à l\'utilisateur authentifié, y compris les brouillons. Accessible uniquement aux rôles AGENT et ADMIN. L\'identifiant du propriétaire est extrait du JWT. Sans filtre statut, les deux statuts sont inclus. 
+     * Lister mes annonces
+     */
+    async getMesAnnonces(requestParameters: GetMesAnnoncesRequest = {}, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<GetMesAnnonces200Response> {
+        const response = await this.getMesAnnoncesRaw(requestParameters, initOverrides);
         return await response.value();
     }
 
@@ -168,8 +525,89 @@ export class AnnoncesApi extends runtime.BaseAPI {
         return await response.value();
     }
 
+    /**
+     * Creates request options for updateAnnonce without sending the request
+     */
+    async updateAnnonceRequestOpts(requestParameters: UpdateAnnonceRequest): Promise<runtime.RequestOpts> {
+        if (requestParameters['id'] == null) {
+            throw new runtime.RequiredError(
+                'id',
+                'Required parameter "id" was null or undefined when calling updateAnnonce().'
+            );
+        }
+
+        if (requestParameters['updateAnnonceInput'] == null) {
+            throw new runtime.RequiredError(
+                'updateAnnonceInput',
+                'Required parameter "updateAnnonceInput" was null or undefined when calling updateAnnonce().'
+            );
+        }
+
+        const queryParameters: any = {};
+
+        const headerParameters: runtime.HTTPHeaders = {};
+
+        headerParameters['Content-Type'] = 'application/json';
+
+        if (this.configuration && this.configuration.accessToken) {
+            const token = this.configuration.accessToken;
+            const tokenString = await token("bearerAuth", []);
+
+            if (tokenString) {
+                headerParameters["Authorization"] = `Bearer ${tokenString}`;
+            }
+        }
+
+        let urlPath = `/annonces/{id}`;
+        urlPath = urlPath.replace('{id}', encodeURIComponent(String(requestParameters['id'])));
+
+        return {
+            path: urlPath,
+            method: 'PATCH',
+            headers: headerParameters,
+            query: queryParameters,
+            body: UpdateAnnonceInputToJSON(requestParameters['updateAnnonceInput']),
+        };
+    }
+
+    /**
+     * Un agent peut modifier uniquement ses propres annonces. Un administrateur peut modifier toutes les annonces. Le propriétaire et le statut ne sont pas modifiables ici. 
+     * Modifier une annonce
+     */
+    async updateAnnonceRaw(requestParameters: UpdateAnnonceRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<AnnonceModifiee>> {
+        const requestOptions = await this.updateAnnonceRequestOpts(requestParameters);
+        const response = await this.request(requestOptions, initOverrides);
+
+        return new runtime.JSONApiResponse(response, (jsonValue) => AnnonceModifieeFromJSON(jsonValue));
+    }
+
+    /**
+     * Un agent peut modifier uniquement ses propres annonces. Un administrateur peut modifier toutes les annonces. Le propriétaire et le statut ne sont pas modifiables ici. 
+     * Modifier une annonce
+     */
+    async updateAnnonce(requestParameters: UpdateAnnonceRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<AnnonceModifiee> {
+        const response = await this.updateAnnonceRaw(requestParameters, initOverrides);
+        return await response.value();
+    }
+
 }
 
+/**
+ * @export
+ */
+export const GetMesAnnoncesTypeEnum = {
+    Vente: 'VENTE',
+    Location: 'LOCATION',
+} as const;
+export type GetMesAnnoncesTypeEnum = typeof GetMesAnnoncesTypeEnum[keyof typeof GetMesAnnoncesTypeEnum];
+/**
+ * @export
+ */
+export const GetMesAnnoncesStatutEnum = {
+    Brouillon: 'BROUILLON',
+    Publie: 'PUBLIE',
+} as const;
+export type GetMesAnnoncesStatutEnum = typeof GetMesAnnoncesStatutEnum[keyof typeof GetMesAnnoncesStatutEnum];
 /**
  * @export
  */

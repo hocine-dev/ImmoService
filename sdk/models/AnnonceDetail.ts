@@ -13,13 +13,13 @@
  */
 
 import { mapValues, parseDate, parseDateTime, serializeDate, serializeDateTime } from '../runtime.js';
-import type { AnnonceDetailAllOfPhotos } from './AnnonceDetailAllOfPhotos.js';
+import type { AnnonceCreeeAllOfPhotos } from './AnnonceCreeeAllOfPhotos.js';
 import {
-    AnnonceDetailAllOfPhotosFromJSON,
-    AnnonceDetailAllOfPhotosFromJSONTyped,
-    AnnonceDetailAllOfPhotosToJSON,
-    AnnonceDetailAllOfPhotosToJSONTyped,
-} from './AnnonceDetailAllOfPhotos.js';
+    AnnonceCreeeAllOfPhotosFromJSON,
+    AnnonceCreeeAllOfPhotosFromJSONTyped,
+    AnnonceCreeeAllOfPhotosToJSON,
+    AnnonceCreeeAllOfPhotosToJSONTyped,
+} from './AnnonceCreeeAllOfPhotos.js';
 
 /**
  * 
@@ -90,7 +90,7 @@ export interface AnnonceDetail {
     /**
      * 
      */
-    photos: Array<AnnonceDetailAllOfPhotos>;
+    photos: Array<AnnonceCreeeAllOfPhotos>;
 }
 
 
@@ -107,6 +107,7 @@ export type AnnonceDetailTypeEnum = typeof AnnonceDetailTypeEnum[keyof typeof An
  * @export
  */
 export const AnnonceDetailStatutEnum = {
+    Brouillon: 'BROUILLON',
     Publie: 'PUBLIE',
 } as const;
 export type AnnonceDetailStatutEnum = typeof AnnonceDetailStatutEnum[keyof typeof AnnonceDetailStatutEnum];
@@ -127,8 +128,6 @@ export function instanceOfAnnonceDetail(value: object): value is AnnonceDetail {
     if (!('chambres' in value) || value['chambres'] === undefined) return false;
     if (!('createdAt' in value) || value['createdAt'] === undefined) return false;
     if (!('statut' in value) || value['statut'] === undefined) return false;
-    if (value['statut'] !== 'PUBLIE') return false;
-    
     if (!('updatedAt' in value) || value['updatedAt'] === undefined) return false;
     if (!('auteurId' in value) || value['auteurId'] === undefined) return false;
     if (!('photos' in value) || value['photos'] === undefined) return false;
@@ -160,7 +159,7 @@ export function AnnonceDetailFromJSONTyped(json: any, ignoreDiscriminator: boole
         'dateDisponibilite': json['dateDisponibilite'] === undefined ? undefined : json['dateDisponibilite'] === null ? null : (parseDateTime(json['dateDisponibilite'])),
         'updatedAt': (json['updatedAt'] == null ? json['updatedAt'] : parseDateTime(json['updatedAt'])),
         'auteurId': json['auteurId'],
-        'photos': ((json['photos'] as Array<any>).map(AnnonceDetailAllOfPhotosFromJSON)),
+        'photos': ((json['photos'] as Array<any>).map(AnnonceCreeeAllOfPhotosFromJSON)),
     };
 }
 
@@ -190,7 +189,7 @@ export function AnnonceDetailToJSONTyped(value?: AnnonceDetail | null, ignoreDis
         'dateDisponibilite': value['dateDisponibilite'] == null ? value['dateDisponibilite'] : serializeDateTime(value['dateDisponibilite']),
         'updatedAt': value['updatedAt'] == null ? value['updatedAt'] : serializeDateTime(value['updatedAt']),
         'auteurId': value['auteurId'],
-        'photos': ((value['photos'] as Array<any>).map(AnnonceDetailAllOfPhotosToJSON)),
+        'photos': ((value['photos'] as Array<any>).map(AnnonceCreeeAllOfPhotosToJSON)),
     };
 }
 

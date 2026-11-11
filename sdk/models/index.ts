@@ -1,16 +1,22 @@
 /* tslint:disable */
 /* eslint-disable */
+export * from './AnnonceCreee.js';
+export * from './AnnonceCreeeAllOfPhotos.js';
 export * from './AnnonceDetail.js';
-export * from './AnnonceDetailAllOfPhotos.js';
+export * from './AnnonceModifiee.js';
 export * from './AnnonceResume.js';
 export * from './ApiError.js';
 export * from './ApiErrorError.js';
+export * from './ChangeStatutAnnonce200Response.js';
+export * from './ChangeStatutAnnonceRequest.js';
+export * from './CreateAnnonceInput.js';
 export * from './CreateQuestion201Response.js';
 export * from './CreateQuestionInput.js';
 export * from './CreateUserInput.js';
 export * from './DeleteQuestion200Response.js';
 export * from './DeleteUser200Response.js';
 export * from './GetAllUsers200Response.js';
+export * from './GetMesAnnonces200Response.js';
 export * from './ListAnnonces200Response.js';
 export * from './ListAnnonces200ResponsePagination.js';
 export * from './ListQuestionsByAnnonce200Response.js';
@@ -22,6 +28,7 @@ export * from './Question.js';
 export * from './QuestionDetail.js';
 export * from './QuestionDetailAllOfAuteur.js';
 export * from './RegisterUser201Response.js';
+export * from './UpdateAnnonceInput.js';
 export * from './UpdateUser200Response.js';
 export * from './UpdateUserInput.js';
 export * from './User.js';

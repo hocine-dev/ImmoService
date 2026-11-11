@@ -74,7 +74,7 @@ No authorization required
 | **400** | Données ou paramètres invalides. |  -  |
 | **401** | Email ou mot de passe incorrect. |  -  |
 | **429** | Limite de tentatives de connexion atteinte. |  -  |
-| **500** | Erreur serveur (ex. variable d\&#39;environnement &#x60;JWT_SECRET&#x60; manquante). |  -  |
+| **500** | Erreur serveur. |  -  |
 
 [[Back to top]](#) [[Back to API list]](../README.md#api-endpoints) [[Back to Model list]](../README.md#models) [[Back to README]](../README.md)
 

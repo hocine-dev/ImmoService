@@ -57,14 +57,27 @@ paths:
 
         - name: prixMax
           in: query
-          description: Prix maximal des annonces.
+          description: >
+            Prix maximal sous forme de chaîne décimale non négative,
+            avec au plus deux décimales.
           schema:
-            type: number
-            minimum: 0
+            type: string
+            pattern: '^(0|[1-9]\d*)(\.\d{1,2})?$'
+            example: "250000.00"
 
       responses:
         "200":
           description: Liste paginée des annonces publiées.
+          headers:
+            ETag:
+              description: Identifiant de la représentation JSON.
+              schema:
+                type: string
+            Cache-Control:
+              description: Politique de cache HTTP public avec revalidation.
+              schema:
+                type: string
+                example: "public, max-age=0, must-revalidate"
           content:
             application/json:
               schema:
@@ -88,8 +101,256 @@ paths:
                       pages:
                         type: integer
 
+        "304":
+          description: La liste n'a pas changé depuis l'ETag fourni.
+          headers:
+            ETag:
+              description: ETag de la représentation actuelle.
+              schema:
+                type: string
+            Cache-Control:
+              description: Politique de revalidation.
+              schema:
+                type: string
+
         "400":
           description: Paramètres de recherche invalides.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
+    post:
+      tags:
+        - Annonces
+      summary: Créer une annonce immobilière
+      description: >
+        Permet à un AGENT ou un ADMIN authentifié de créer une annonce.
+        L'identifiant de l'auteur est récupéré depuis le JWT.
+        Le statut initial est toujours BROUILLON.
+      operationId: createAnnonce
+      security:
+        - bearerAuth: []
+
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateAnnonceInput"
+
+      responses:
+        "201":
+          description: Annonce créée en brouillon.
+          headers:
+            Cache-Control:
+              description: Les réponses d'écriture ne sont pas stockables.
+              schema:
+                type: string
+                example: "no-store"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnnonceCreee"
+
+        "400":
+          description: Données de création invalides.
+          headers:
+            Cache-Control:
+              description: Les réponses d'écriture ne sont pas stockables.
+              schema:
+                type: string
+                example: "no-store"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
+        "413":
+          description: Corps JSON trop volumineux.
+          headers:
+            Cache-Control:
+              description: Les réponses d'écriture ne sont pas stockables.
+              schema:
+                type: string
+                example: "no-store"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
+        "401":
+          description: JWT absent, invalide ou expiré.
+          headers:
+            Cache-Control:
+              description: Les réponses d'écriture ne sont pas stockables.
+              schema:
+                type: string
+                example: "no-store"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
+        "403":
+          description: Utilisateur authentifié sans rôle AGENT ou ADMIN.
+          headers:
+            Cache-Control:
+              description: Les réponses d'écriture ne sont pas stockables.
+              schema:
+                type: string
+                example: "no-store"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
+        "429":
+          description: Limite de requêtes dépassée.
+          headers:
+            Cache-Control:
+              description: Les réponses d'écriture ne sont pas stockables.
+              schema:
+                type: string
+                example: "no-store"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
+  /annonces/miennes:
+    get:
+      tags:
+        - Annonces
+      summary: Lister mes annonces
+      description: >
+        Retourne les annonces appartenant à l'utilisateur
+        authentifié, y compris les brouillons.
+        Accessible uniquement aux rôles AGENT et ADMIN.
+        L'identifiant du propriétaire est extrait du JWT.
+        Sans filtre statut, les deux statuts sont inclus.
+
+      operationId: getMesAnnonces
+
+      security:
+        - bearerAuth: []
+
+      parameters:
+        - name: page
+          in: query
+          description: Numéro de page.
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+
+        - name: limit
+          in: query
+          description: Nombre d'annonces par page.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 10
+
+        - name: ville
+          in: query
+          description: Filtrer par ville.
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 100
+
+        - name: type
+          in: query
+          description: Type de transaction.
+          schema:
+            type: string
+            enum: [VENTE, LOCATION]
+
+        - name: prixMax
+          in: query
+          description: >
+            Prix maximal sous forme de chaîne décimale non négative,
+            avec au plus deux décimales.
+          schema:
+            type: string
+            pattern: '^(0|[1-9]\d*)(\.\d{1,2})?$'
+            example: "250000.00"
+
+        - name: statut
+          in: query
+          description: Filtrer par statut de publication.
+          schema:
+            type: string
+            enum: [BROUILLON, PUBLIE]
+
+      responses:
+        "200":
+          description: Liste paginée des annonces du propriétaire.
+          headers:
+            Cache-Control:
+              description: Données personnelles non stockables.
+              schema:
+                type: string
+                example: "private, no-store"
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, pagination]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/AnnonceDetail"
+                  pagination:
+                    type: object
+                    required: [page, limit, total, pages]
+                    properties:
+                      page:
+                        type: integer
+                      limit:
+                        type: integer
+                      total:
+                        type: integer
+                      pages:
+                        type: integer
+
+        "400":
+          description: Paramètres de requête invalides.
+          headers:
+            Cache-Control:
+              description: Données personnelles non stockables.
+              schema:
+                type: string
+                example: "private, no-store"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
+        "401":
+          description: Authentification requise.
+          headers:
+            Cache-Control:
+              description: Données personnelles non stockables.
+              schema:
+                type: string
+                example: "private, no-store"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
+        "403":
+          description: Accès réservé aux agents et administrateurs.
+          headers:
+            Cache-Control:
+              description: Données personnelles non stockables.
+              schema:
+                type: string
+                example: "private, no-store"
           content:
             application/json:
               schema:
@@ -100,8 +361,13 @@ paths:
       tags:
         - Annonces
       summary: Consulter le détail d'une annonce publiée
+      description: >
+        Les annonces publiées sont accessibles publiquement.
+        Les brouillons sont accessibles uniquement à leur auteur ou aux administrateurs.
       operationId: getAnnonceById
-      security: []
+      security:
+        - {}
+        - bearerAuth: []
 
       parameters:
         - name: id
@@ -115,24 +381,389 @@ paths:
       responses:
         "200":
           description: Détails de l'annonce publiée.
+          headers:
+            ETag:
+              description: Identifiant de la représentation JSON.
+              schema:
+                type: string
+            Cache-Control:
+              description: |
+                Politique de cache HTTP.
+                Les annonces publiées sont publiques avec revalidation.
+                Les brouillons ne doivent pas être mis en cache.
+              schema:
+                type: string
+                examples:
+                  - "public, max-age=0, must-revalidate"
+                  - "private, no-store"
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/AnnonceDetail"
 
+        "304":
+          description: L'annonce n'a pas changé depuis l'ETag fourni.
+          headers:
+            ETag:
+              description: ETag de la représentation actuelle.
+              schema:
+                type: string
+            Cache-Control:
+              description: Politique de revalidation.
+              schema:
+                type: string
+                example: "public, max-age=0, must-revalidate"
+
         "400":
           description: Identifiant invalide.
+          headers:
+            Cache-Control:
+              description: Les brouillons et les réponses d'erreur ne sont pas stockables.
+              schema:
+                type: string
+                example: "private, no-store"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
+        "401":
+          description: Authentification requise ou invalide.
+          headers:
+            Cache-Control:
+              description: Les brouillons et les réponses d'erreur ne sont pas stockables.
+              schema:
+                type: string
+                example: "private, no-store"
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ApiError"
 
         "404":
-          description: Annonce inexistante ou non publiée.
+          description: Annonce inexistante ou non accessible.
+          headers:
+            Cache-Control:
+              description: Les brouillons et les réponses d'erreur ne sont pas stockables.
+              schema:
+                type: string
+                example: "private, no-store"
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ApiError"
+
+    patch:
+      tags:
+        - Annonces
+      summary: Modifier une annonce
+      description: >
+        Un agent peut modifier uniquement ses propres annonces.
+        Un administrateur peut modifier toutes les annonces.
+        Le propriétaire et le statut ne sont pas modifiables ici.
+      operationId: updateAnnonce
+
+      # JWT obligatoire : AGENT ou ADMIN.
+      security:
+        - bearerAuth: []
+
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Identifiant de l'annonce à modifier.
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 100
+
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateAnnonceInput"
+
+      responses:
+        "200":
+          description: Annonce modifiée avec succès.
+          headers:
+            Cache-Control:
+              description: Les réponses d'écriture ne sont pas stockables.
+              schema:
+                type: string
+                example: "no-store"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnnonceModifiee"
+
+        "400":
+          description: Données de modification invalides.
+          headers:
+            Cache-Control:
+              description: Les réponses d'écriture ne sont pas stockables.
+              schema:
+                type: string
+                example: "no-store"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
+        "401":
+          description: Authentification requise.
+          headers:
+            Cache-Control:
+              description: Les réponses d'écriture ne sont pas stockables.
+              schema:
+                type: string
+                example: "no-store"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
+        "403":
+          description: Rôle insuffisant.
+          headers:
+            Cache-Control:
+              description: Les réponses d'écriture ne sont pas stockables.
+              schema:
+                type: string
+                example: "no-store"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
+        "404":
+          description: Annonce inexistante ou inaccessible à cet agent.
+          headers:
+            Cache-Control:
+              description: Les réponses d'écriture ne sont pas stockables.
+              schema:
+                type: string
+                example: "no-store"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
+    delete:
+      tags:
+        - Annonces
+      summary: Supprimer une annonce
+      description: >
+        Un agent peut supprimer uniquement ses propres annonces.
+        Un administrateur peut supprimer toutes les annonces.
+        La suppression est définitive et entraîne également
+        la suppression des photos, questions, réponses et favoris
+        associés, conformément aux relations Prisma.
+      operationId: deleteAnnonce
+
+      # Authentification JWT obligatoire.
+      security:
+        - bearerAuth: []
+
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Identifiant de l'annonce à supprimer.
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 100
+
+      responses:
+        "204":
+          description: Annonce supprimée avec succès.
+          headers:
+            Cache-Control:
+              description: Les réponses d'écriture ne sont pas stockables.
+              schema:
+                type: string
+                example: "no-store"
+
+        "400":
+          description: Identifiant invalide.
+          headers:
+            Cache-Control:
+              description: Les réponses d'écriture ne sont pas stockables.
+              schema:
+                type: string
+                example: "no-store"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
+        "401":
+          description: Authentification requise.
+          headers:
+            Cache-Control:
+              description: Les réponses d'écriture ne sont pas stockables.
+              schema:
+                type: string
+                example: "no-store"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
+        "403":
+          description: Rôle insuffisant.
+          headers:
+            Cache-Control:
+              description: Les réponses d'écriture ne sont pas stockables.
+              schema:
+                type: string
+                example: "no-store"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
+        "404":
+          description: Annonce inexistante ou inaccessible à cet agent.
+          headers:
+            Cache-Control:
+              description: Les réponses d'écriture ne sont pas stockables.
+              schema:
+                type: string
+                example: "no-store"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
+  /annonces/{id}/statut:
+    patch:
+      tags:
+        - Annonces
+      summary: Publier ou dépublier une annonce
+      description: >
+        Permet à un agent de publier ou dépublier ses propres annonces.
+        Un administrateur peut modifier le statut de toutes les annonces.
+        Si le statut demandé est déjà celui de l'annonce, aucune
+        modification n'est effectuée dans la base de données.
+
+      operationId: changeStatutAnnonce
+
+      # Authentification JWT obligatoire : AGENT ou ADMIN.
+      security:
+        - bearerAuth: []
+
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Identifiant de l'annonce.
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 100
+
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+                - statut
+              properties:
+                statut:
+                  type: string
+                  enum:
+                    - BROUILLON
+                    - PUBLIE
+                  description: Nouveau statut de publication.
+
+      responses:
+        "200":
+          description: Statut enregistré avec succès.
+          headers:
+            Cache-Control:
+              description: Les réponses d'écriture ne sont pas stockables.
+              schema:
+                type: string
+                example: "no-store"
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - id
+                  - statut
+                  - auteurId
+                  - updatedAt
+                properties:
+                  id:
+                    type: string
+                  statut:
+                    type: string
+                    enum: [BROUILLON, PUBLIE]
+                  auteurId:
+                    type: string
+                  updatedAt:
+                    type: string
+                    format: date-time
+
+        "400":
+          description: Identifiant ou statut invalide.
+          headers:
+            Cache-Control:
+              description: Les réponses d'écriture ne sont pas stockables.
+              schema:
+                type: string
+                example: "no-store"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
+        "401":
+          description: Authentification requise.
+          headers:
+            Cache-Control:
+              description: Les réponses d'écriture ne sont pas stockables.
+              schema:
+                type: string
+                example: "no-store"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
+        "403":
+          description: Rôle insuffisant.
+          headers:
+            Cache-Control:
+              description: Les réponses d'écriture ne sont pas stockables.
+              schema:
+                type: string
+                example: "no-store"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
+        "404":
+          description: Annonce inexistante ou inaccessible à cet agent.
+          headers:
+            Cache-Control:
+              description: Les réponses d'écriture ne sont pas stockables.
+              schema:
+                type: string
+                example: "no-store"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
 
 # ──────────────────────────── AUTH ────────────────────────────
 
@@ -693,6 +1324,172 @@ components:
                   - Identifiant invalide
 
   schemas:
+    # Données acceptées pour PATCH /annonces/{id}.
+    # Aucun champ n'est obligatoire individuellement,
+    # mais au moins un champ doit être fourni.
+    UpdateAnnonceInput:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        titre:
+          type: string
+          minLength: 1
+        description:
+          type: string
+          minLength: 1
+        type:
+          type: string
+          enum: [VENTE, LOCATION]
+        typePropriete:
+          type: string
+          enum: [APPARTEMENT, MAISON, VILLA, STUDIO, LOFT]
+        prix:
+          type: string
+          description: Prix strictement positif, au maximum deux décimales
+          pattern: '^(?:[1-9][0-9]{0,9}(?:[.][0-9]{1,2})?|0[.](?:[1-9][0-9]?|0[1-9]))$'
+          example: "400000.00"
+        ville:
+          type: string
+          minLength: 1
+          maxLength: 100
+          description: Ville du bien immobilier (100 caractères maximum)
+          example: Le Havre
+        surface:
+          type: integer
+          minimum: 9
+          maximum: 2000
+        chambres:
+          type: integer
+          minimum: 0
+          maximum: 20
+        etat:
+          type: string
+          enum: [DISPONIBLE, LOUE, VENDU]
+        dateDisponibilite:
+          type: string
+          format: date-time
+
+    # Réponse simplifiée : les autres propriétés
+    # de l'annonce peuvent également être renvoyées.
+    AnnonceModifiee:
+      type: object
+      required: [id, statut, auteurId]
+      properties:
+        id:
+          type: string
+        statut:
+          type: string
+          enum: [BROUILLON, PUBLIE]
+        auteurId:
+          type: string
+        titre:
+          type: string
+        prix:
+          type: string
+        ville:
+          type: string
+        updatedAt:
+          type: string
+          format: date-time
+
+    CreateAnnonceInput:
+      type: object
+      additionalProperties: false
+      required:
+        - titre
+        - description
+        - type
+        - typePropriete
+        - prix
+        - ville
+        - surface
+        - chambres
+      properties:
+        titre:
+          type: string
+          minLength: 1
+        description:
+          type: string
+          minLength: 1
+        type:
+          type: string
+          enum: [VENTE, LOCATION]
+        typePropriete:
+          type: string
+          enum: [APPARTEMENT, MAISON, VILLA, STUDIO, LOFT]
+        prix:
+          type: string
+          description: Prix strictement positif, au maximum deux décimales
+          pattern: '^(?:[1-9][0-9]{0,9}(?:[.][0-9]{1,2})?|0[.](?:[1-9][0-9]?|0[1-9]))$'
+          example: "400000.00"
+        ville:
+          type: string
+          minLength: 1
+          maxLength: 100
+          description: Ville du bien immobilier (100 caractères maximum)
+          example: Le Havre
+        surface:
+          type: integer
+          minimum: 9
+          maximum: 2000
+        chambres:
+          type: integer
+          minimum: 0
+          maximum: 20
+        etat:
+          type: string
+          enum: [DISPONIBLE, LOUE, VENDU]
+        dateDisponibilite:
+          type: string
+          format: date-time
+          description: Date ISO 8601 avec fuseau horaire.
+
+    AnnonceCreee:
+      allOf:
+        - $ref: "#/components/schemas/AnnonceResume"
+        - type: object
+          required:
+            - description
+            - statut
+            - dateDisponibilite
+            - updatedAt
+            - auteurId
+            - photos
+          properties:
+            description:
+              type: string
+            statut:
+              type: string
+              enum: [BROUILLON]
+            surface:
+              type: integer
+            chambres:
+              type: integer
+            dateDisponibilite:
+              type: [string, "null"]
+              format: date-time
+            updatedAt:
+              type: string
+              format: date-time
+            auteurId:
+              type: string
+              description: Identifiant de l'utilisateur authentifié.
+            photos:
+              type: array
+              items:
+                type: object
+                required: [id, url, alt, annonceId]
+                properties:
+                  id:
+                    type: string
+                  url:
+                    type: string
+                  alt:
+                    type: string
+                  annonceId:
+                    type: string
+
     AnnonceDetail:
       allOf:
         - $ref: "#/components/schemas/AnnonceResume"
@@ -707,7 +1504,7 @@ components:
               type: [string, "null"]
             statut:
               type: string
-              enum: [PUBLIE]
+              enum: [BROUILLON, PUBLIE]
             dateDisponibilite:
               type: [string, "null"]
               format: date-time
@@ -769,7 +1566,6 @@ components:
         createdAt:
           type: string
           format: date-time
-
     ApiError:
       type: object
       required: [error]

@@ -1326,6 +1326,7 @@ components:
       type: http
       scheme: bearer
       bearerFormat: JWT
+
   parameters:
     UserId:
       name: id
@@ -1407,7 +1408,6 @@ components:
               details:
                 id:
                   - Identifiant invalide
-
   schemas:
     # Données acceptées pour PATCH /annonces/{id}.
     # Aucun champ n'est obligatoire individuellement,

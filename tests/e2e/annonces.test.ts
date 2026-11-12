@@ -1,0 +1,9 @@
+import "./annonces-list.e2e.js";
+import "./annonces-create.e2e.js";
+import "./annonces-detail.e2e.js";
+import "./annonces-update.e2e.js";
+import "./annonces-delete.e2e.js";
+import "./annonces-status.e2e.js";
+import "./annonces-miennes.e2e.js";
+import "./annonces-drafts.e2e.js";
+import "./annonces-cache.e2e.js";

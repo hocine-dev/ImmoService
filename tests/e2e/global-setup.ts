@@ -78,8 +78,8 @@ export default async function setup() {
                 ...process.env,
                 NODE_ENV: "test",
                 PORT: String(PORT),
-                DATABASE_URL: testUrl,
-                RATE_LIMIT_DISABLED: "true"
+
+                DATABASE_URL: testUrl
             },
             stdio: "inherit"
         }

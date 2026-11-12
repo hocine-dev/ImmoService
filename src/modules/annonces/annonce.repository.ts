@@ -1,8 +1,29 @@
 
 import { Prisma } from "../../generated/prisma/client.js";
 import type { PrismaClient } from "../../generated/prisma/client.js";
+import { AnnonceViewer, canReadAnnonce, getAnnonceWriteScope } from "./annonce.policy.js";
 
-import type { AnnonceQuery } from "./annonce.schema.js";
+import type { AnnonceQuery, ChangeStatutAnnonceRequest, MesAnnoncesQuery, UpdateAnnonceInput } from "./annonce.schema.js";
+
+import type { CreateAnnonceInput } from "./annonce.schema.js";
+
+
+
+
+/**
+ * Échappe les caractères spéciaux de LIKE/ILIKE.
+ *
+ * %  : zéro ou plusieurs caractères
+ * _  : exactement un caractère
+ * \  : caractère d'échappement SQL
+ *
+ * Le texte fourni par l'utilisateur doit être
+ * recherché littéralement.
+ */
+function escapeLike(value: string): string {
+    return value.replace(/[\\%_]/g, "\\$&");
+}
+
 
 /**
  * Repository des annonces.
@@ -23,8 +44,8 @@ export function createAnnonceRepository(
         // 2. Filtre optionnel : ville
         if (ville !== undefined) {
             where.ville = {
-                equals: ville,
-                mode: "insensitive"
+                contains: escapeLike(ville),
+                mode: "insensitive" as const
             };
         }
 
@@ -96,36 +117,379 @@ export function createAnnonceRepository(
         };
     }
 
+
     /**
-     * Recherche une annonce publiée à partir de son identifiant.
-     * Retourne null si l'annonce n'existe pas ou est en brouillon.
+     * Récupère une annonce accessible au demandeur.
+     * - Annonce publiée : accès public.
+     * - Brouillon : auteur AGENT ou ADMIN uniquement.
      */
-    async function findPublishedById(id: string) {
+    async function findPublishedById(
+        id: string,
+        viewer?: AnnonceViewer
+    ) {
+        // Filtrer les accès directement dans PostgreSQL.
+        const where: Prisma.AnnonceWhereInput = {
+            id,
+
+            ...(viewer?.role === "ADMIN"
+                ? {}
+                : viewer?.role === "AGENT"
+                    ? {
+                        OR: [
+                            { statut: "PUBLIE" },
+                            { auteurId: viewer.id }
+                        ]
+                    }
+                    : { statut: "PUBLIE" })
+        };
+
         const annonce = await prisma.annonce.findFirst({
-            where: {
-                id,
-                statut: "PUBLIE"
+            where,
+            include: {
+                photos: true
+            }
+        });
+
+        // Vérification supplémentaire par la politique pure.
+        if (!annonce || !canReadAnnonce(annonce, viewer)) {
+            return null;
+        }
+
+        return {
+            ...annonce,
+            prix: annonce.prix.toFixed(2),
+            dateDisponibilite:
+                annonce.dateDisponibilite?.toISOString() ?? null,
+            createdAt: annonce.createdAt.toISOString(),
+            updatedAt: annonce.updatedAt.toISOString()
+        };
+    }
+
+
+
+    /**
+     * Crée une annonce pour un agent authentifié.
+     * Toute nouvelle annonce est enregistrée en brouillon.
+     */
+    async function createAnnonce(
+        input: CreateAnnonceInput,
+        auteurId: string
+    ) {
+        const annonce = await prisma.annonce.create({
+            data: {
+                titre: input.titre,
+                description: input.description,
+                type: input.type,
+                typePropriete: input.typePropriete,
+                prix: new Prisma.Decimal(input.prix),
+                ville: input.ville,
+                surface: input.surface,
+                chambres: input.chambres,
+
+                // Champs facultatifs
+                etat: input.etat,
+                dateDisponibilite: input.dateDisponibilite
+                    ? new Date(input.dateDisponibilite)
+                    : undefined,
+
+                // Champs contrôlés par le serveur
+                statut: "BROUILLON",
+                auteurId
             },
             include: {
                 photos: true
             }
         });
 
-        // Annonce inexistante ou non publiée
-        if (!annonce) {
-            return null;
-        }
-
-        // Conversion des types pour la réponse JSON
+        // Conversion des types Prisma pour la réponse JSON
         return {
             ...annonce,
             prix: annonce.prix.toFixed(2),
-            createdAt: annonce.createdAt.toISOString()
+            dateDisponibilite: annonce.dateDisponibilite?.toISOString() ?? null,
+            createdAt: annonce.createdAt.toISOString(),
+            updatedAt: annonce.updatedAt.toISOString()
         };
     }
 
+
+
+    /**
+     * Modifie une annonce existante.
+     *
+     * Protection IDOR :
+     * - ADMIN : peut modifier toutes les annonces.
+     * - AGENT : peut modifier uniquement ses annonces.
+     *
+     * Le contrôle du propriétaire est effectué directement
+     * dans la condition SQL de mise à jour.
+     */
+    async function updateAnnonce(
+        id: string,
+        input: UpdateAnnonceInput,
+        utilisateurId: string,
+        isAdmin: boolean
+    ) {
+        const scope = getAnnonceWriteScope({
+            id: utilisateurId,
+            role: isAdmin ? "ADMIN" : "AGENT"
+        });
+
+        if (scope === null) {
+            return null;
+        }
+
+        try {
+            // Modification atomique avec vérification du propriétaire.
+            // update() retourne directement l'annonce modifiée.
+            const annonce = await prisma.annonce.update({
+                where: {
+                    id,
+                    ...scope
+                },
+
+                data: {
+                    // Seuls les champs présents seront modifiés.
+                    titre: input.titre,
+                    description: input.description,
+                    type: input.type,
+                    typePropriete: input.typePropriete,
+                    ville: input.ville,
+                    surface: input.surface,
+                    chambres: input.chambres,
+                    etat: input.etat,
+
+                    // Conversion du prix en Decimal pour Prisma.
+                    prix: input.prix === undefined
+                        ? undefined
+                        : new Prisma.Decimal(input.prix),
+
+                    // Conversion ISO 8601 vers Date.
+                    dateDisponibilite: input.dateDisponibilite === undefined
+                        ? undefined
+                        : new Date(input.dateDisponibilite)
+                },
+
+                // Récupérer également les photos de l'annonce.
+                include: {
+                    photos: true
+                }
+            });
+
+            // Même format JSON que précédemment.
+            return {
+                ...annonce,
+                prix: annonce.prix.toFixed(2),
+                dateDisponibilite:
+                    annonce.dateDisponibilite?.toISOString() ?? null,
+                createdAt: annonce.createdAt.toISOString(),
+                updatedAt: annonce.updatedAt.toISOString()
+            };
+
+        } catch (error) {
+            // Annonce inexistante ou appartenant à un autre agent.
+            if (
+                error instanceof Prisma.PrismaClientKnownRequestError &&
+                error.code === "P2025"
+            ) {
+                return null;
+            }
+
+            // Toute autre erreur doit remonter au gestionnaire global.
+            throw error;
+        }
+    }
+
+
+
+    /**
+     * Supprime une annonce si l'utilisateur est autorisé.
+     *
+     * Un AGENT peut supprimer uniquement ses annonces.
+     * Un ADMIN peut supprimer toutes les annonces.
+     *
+     * La vérification du propriétaire est effectuée
+     * directement dans la requête SQL via Prisma.
+     */
+    async function deleteAnnonce(
+        id: string,
+        utilisateurId: string,
+        isAdmin: boolean
+    ): Promise<boolean> {
+
+        const scope = getAnnonceWriteScope({
+            id: utilisateurId,
+            role: isAdmin ? "ADMIN" : "AGENT"
+        });
+
+        if (scope === null) {
+            return false;
+        }
+
+        const result = await prisma.annonce.deleteMany({
+            where: {
+                id,
+
+                ...scope
+
+            }
+        });
+
+        // count = 1 : annonce supprimée.
+        // count = 0 : inexistante ou accès interdit.
+        return result.count > 0;
+    }
+
+
+
+    /**
+     * Publie ou dépublie une annonce.
+     *
+     * Si l'annonce possède déjà le statut demandé,
+     * aucune ligne n'est modifiée dans PostgreSQL.
+     *
+     * Protection IDOR : un agent ne peut modifier
+     * que ses propres annonces.
+     */
+
+    async function changeStatutAnnonce(
+        id: string,
+        statut: ChangeStatutAnnonceRequest["body"]["statut"],
+        utilisateurId: string,
+        isAdmin: boolean
+    ) {
+        const scope = getAnnonceWriteScope({
+            id: utilisateurId,
+            role: isAdmin ? "ADMIN" : "AGENT"
+        });
+
+        if (scope === null) {
+            return null;
+        }
+
+        const select = {
+            id: true,
+            statut: true,
+            auteurId: true,
+            updatedAt: true
+        } as const;
+
+        try {
+            // Modifier seulement si le statut est différent.
+            // L'autorisation est vérifiée dans la même opération.
+            return await prisma.annonce.update({
+                where: {
+                    id,
+                    ...scope,
+                    statut: { not: statut }
+                },
+                data: { statut },
+                select
+            });
+
+        } catch (error) {
+            if (
+                error instanceof Prisma.PrismaClientKnownRequestError &&
+                error.code === "P2025"
+            ) {
+                // P2025 peut aussi signifier que le statut
+                // demandé est déjà celui de l'annonce.
+                // On vérifie donc si elle est accessible.
+                return prisma.annonce.findFirst({
+                    where: {
+                        id,
+                        ...scope
+                    },
+                    select
+                });
+            }
+
+            throw error;
+        }
+    }
+
+
+
+    /**
+     * Récupère les annonces d'un utilisateur authentifié.
+     *
+     * Contrairement à GET /annonces, cette méthode
+     * retourne aussi les annonces en brouillon.
+     *
+     * Le filtre auteurId est obligatoire :
+     * il provient du JWT et jamais du client.
+     */
+    async function findMesAnnonces(
+        query: MesAnnoncesQuery,
+        auteurId: string
+    ) {
+        const { page, limit, ville, type, prixMax, statut } = query;
+
+        // Construire les filtres Prisma.
+        const where = {
+            // Sécurité : uniquement les annonces du propriétaire.
+            auteurId,
+
+            // Filtres facultatifs.
+            ...(statut !== undefined ? { statut } : {}),
+
+            ...(ville !== undefined ? {
+                ville: {
+                    contains: escapeLike(ville),
+                    mode: "insensitive" as const
+                }
+            } : {}),
+
+            ...(type !== undefined ? { type } : {}),
+
+            ...(prixMax !== undefined ? {
+                prix: { lte: prixMax }
+            } : {})
+        };
+
+        // Compter les annonces et récupérer la page demandée.
+        const [total, annonces] = await Promise.all([
+            prisma.annonce.count({ where }),
+
+            prisma.annonce.findMany({
+                where,
+
+                skip: (page - 1) * limit,
+                take: limit,
+
+                // Ordre stable pour la pagination.
+                orderBy: [
+                    { createdAt: "desc" },
+                    { id: "asc" }
+                ],
+
+                include: {
+                    photos: true
+                }
+            })
+        ]);
+
+        // Convertir les valeurs Prisma en données JSON.
+        return {
+            annonces: annonces.map(annonce => ({
+                ...annonce,
+                prix: annonce.prix.toFixed(2),
+                dateDisponibilite:
+                    annonce.dateDisponibilite?.toISOString() ?? null,
+                createdAt: annonce.createdAt.toISOString(),
+                updatedAt: annonce.updatedAt.toISOString()
+            })),
+            total
+        };
+    }
+
+
     return {
         findPublishedPage,
-        findPublishedById
+        findPublishedById,
+        createAnnonce,
+        updateAnnonce,
+        deleteAnnonce,
+        changeStatutAnnonce,
+        findMesAnnonces
     };
 }

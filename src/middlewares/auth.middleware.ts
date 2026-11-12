@@ -61,22 +61,33 @@ const authMiddleware = (roles: Role[] = []) => {
         algorithms: ["HS256"],
       });
 
+      // 1. Si `decoded` est une chaîne (ex: JWT signé sans objet), le payload est malformé
       if (
         typeof decoded === "string" ||
+
+        // 2. Vérifie que la propriété `id` existe et qu'il s'agit bien d'une chaîne de caractères
         typeof decoded.id !== "string" ||
+
+        // 3. S'assure que l'ID n'est pas vide (évite les espaces seuls comme "   ")
         decoded.id.trim() === "" ||
+
+        // 4. Vérifie que le rôle du token correspond bien à l'un des rôles autorisés dans l'enum `Role`
         !Object.values(Role).includes(decoded.role as Role)
       ) {
+        // 5. Si l'une des vérifications échoue, on rejette la requête avec un statut 401 Unauthorized
         return res.status(401).json(
           apiError("UNAUTHORIZED", "Token invalide")
         );
       }
 
-      // Vérification des rôles requis
+      // 1. Si des rôles spécifiques sont requis pour cette route (`roles.length > 0`)
+      //    ET que le rôle de l'utilisateur (`decoded.role`) ne fait PAS partie de cette liste
       if (
         roles.length > 0 &&
         (!roles.includes(decoded.role))
       ) {
+        // 2. L'utilisateur est authentifié mais n'a pas les privilèges nécessaires :
+        //    On rejette la requête avec un statut 403 Forbidden et le message "Accès refusé"
         return res.status(403).json(
           apiError("FORBIDDEN", "Accès refusé")
         );

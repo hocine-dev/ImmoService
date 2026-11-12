@@ -16,6 +16,7 @@ import cors from "cors";
 import { createFavoriRouter } from "./modules/favoris/favori.route.js";
 
 
+
 /**
  * Construit l'application Express.
  *
@@ -70,7 +71,7 @@ export function createApp(prisma: PrismaClient) {
   // Désactivée uniquement pendant les tests E2E.
   if (process.env.NODE_ENV !== "test") {
     app.use(
-      ["/annonces", "/users", "/auth", "/questions", "/graphql"],
+      ["/annonces", "/users", "/auth", "/questions"],
       rateLimitMiddleware.generalLimiter,
       rateLimitMiddleware.speedLimiter
     );

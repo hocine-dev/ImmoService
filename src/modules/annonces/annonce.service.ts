@@ -1,5 +1,6 @@
 
-import type { AnnonceQuery } from "./annonce.schema.js";
+import { AnnonceViewer } from "./annonce.policy.js";
+import type { AnnonceQuery, ChangeStatutAnnonceRequest, CreateAnnonceInput, MesAnnoncesQuery, UpdateAnnonceInput } from "./annonce.schema.js";
 
 /**
  * Contrat attendu du Repository.
@@ -52,18 +53,185 @@ export function createAnnonceService<TAnnonce>(
 }
 
 
+
 /**
- * Récupère le détail d'une annonce publiée par son ID.
+ * Récupère une annonce selon les droits du demandeur.
  *
- * Retourne l'annonce si elle existe et est publiée,
- * sinon retourne null.
+ * Sans utilisateur : seules les annonces publiées
+ * sont accessibles.
  */
 export async function getAnnonceById<TAnnonce>(
     repository: {
-        findPublishedById(id: string): Promise<TAnnonce | null>;
+        findPublishedById(
+            id: string,
+            viewer?: AnnonceViewer
+        ): Promise<TAnnonce | null>;
     },
-    id: string
-) {
-    return repository.findPublishedById(id);
+    id: string,
+    viewer?: AnnonceViewer
+): Promise<TAnnonce | null> {
+    if (!viewer) {
+        return repository.findPublishedById(id);
+    }
+
+    return repository.findPublishedById(id, viewer);
 }
 
+
+/**
+ * Crée une annonce pour un agent authentifié.
+ *
+ * Les données ont déjà été validées par Zod.
+ * L'identifiant de l'agent proviendra du JWT vérifié.
+ */
+export async function createAnnonce<TAnnonce>(
+    repository: {
+        createAnnonce(
+            input: CreateAnnonceInput,
+            auteurId: string
+        ): Promise<TAnnonce>;
+    },
+    input: CreateAnnonceInput,
+    auteurId: string
+) {
+    return repository.createAnnonce(input, auteurId);
+}
+
+
+/**
+ * Service de modification d'une annonce.
+ *
+ * Le Controller fournit :
+ * - l'identifiant de l'annonce ;
+ * - les données validées par Zod ;
+ * - l'identifiant issu du JWT ;
+ * - le statut administrateur ou non.
+ *
+ * Le Repository applique la restriction de propriétaire
+ * au moment de l'écriture en base.
+ */
+export async function updateAnnonce<TAnnonce>(
+    repository: {
+        updateAnnonce(
+            id: string,
+            input: UpdateAnnonceInput,
+            utilisateurId: string,
+            isAdmin: boolean
+        ): Promise<TAnnonce | null>;
+    },
+    id: string,
+    input: UpdateAnnonceInput,
+    utilisateurId: string,
+    isAdmin: boolean
+): Promise<TAnnonce | null> {
+
+    return repository.updateAnnonce(
+        id,
+        input,
+        utilisateurId,
+        isAdmin
+    );
+}
+
+
+/**
+ * Supprime une annonce si l'utilisateur est autorisé.
+ *
+ * La vérification du propriétaire est effectuée
+ * par le Repository directement dans PostgreSQL.
+ *
+ * Retourne :
+ * - true  : suppression réussie
+ * - false : annonce inexistante ou inaccessible
+ */
+export async function deleteAnnonce(
+    repository: {
+        deleteAnnonce(
+            id: string,
+            utilisateurId: string,
+            isAdmin: boolean
+        ): Promise<boolean>;
+    },
+    id: string,
+    utilisateurId: string,
+    isAdmin: boolean
+): Promise<boolean> {
+
+    return repository.deleteAnnonce(
+        id,
+        utilisateurId,
+        isAdmin
+    );
+}
+
+
+/**
+ * Publie ou dépublie une annonce.
+ *
+ * Statuts possibles :
+ * - PUBLIE    : l'annonce devient publique.
+ * - BROUILLON : l'annonce n'est plus publique.
+ *
+ * Le Repository vérifie les droits de l'utilisateur
+ * directement dans la requête Prisma.
+ */
+export async function changeStatutAnnonce<TAnnonce>(
+    repository: {
+        changeStatutAnnonce(
+            id: string,
+            statut: ChangeStatutAnnonceRequest["body"]["statut"],
+            utilisateurId: string,
+            isAdmin: boolean
+        ): Promise<TAnnonce | null>;
+    },
+    id: string,
+    statut: ChangeStatutAnnonceRequest["body"]["statut"],
+    utilisateurId: string,
+    isAdmin: boolean
+): Promise<TAnnonce | null> {
+
+    return repository.changeStatutAnnonce(
+        id,
+        statut,
+        utilisateurId,
+        isAdmin
+    );
+}
+
+
+/**
+ * Récupère les annonces de l'utilisateur authentifié.
+ *
+ * Contrairement à la liste publique, cette fonction
+ * retourne les annonces publiées et les brouillons.
+ *
+ * L'identifiant de l'utilisateur vient du JWT.
+ */
+export async function getMesAnnonces<TAnnonce>(
+    repository: {
+        findMesAnnonces(
+            query: MesAnnoncesQuery,
+            auteurId: string
+        ): Promise<{
+            annonces: TAnnonce[];
+            total: number;
+        }>;
+    },
+    query: MesAnnoncesQuery,
+    auteurId: string
+) {
+    // Récupérer les annonces et leur nombre total.
+    const { annonces, total } =
+        await repository.findMesAnnonces(query, auteurId);
+
+    // Conserver le format de pagination de GET /annonces.
+    return {
+        data: annonces,
+        pagination: {
+            page: query.page,
+            limit: query.limit,
+            total,
+            pages: Math.ceil(total / query.limit)
+        }
+    };
+}

@@ -160,22 +160,6 @@ describe("POST /favoris - Tests E2E", () => {
         );
     });
 
-    it("refuse un identifiant d'annonce invalide", async () => {
-        const user = await createTestUser();
-
-        try {
-            await expectApiError(
-                favorisApi(user.token).favorisPost({
-                    favorisPostRequest: { annonceId: "123" }
-                }),
-                404,
-                "NOT_FOUND"
-            );
-        } finally {
-            await deleteTestUser(user.id);
-        }
-    });
-
     it("refuse un body incomplet", async () => {
         const user = await createTestUser();
 

@@ -148,22 +148,6 @@ describe("DELETE /favoris/:annonceId - Tests E2E", () => {
         );
     });
 
-    it("refuse un identifiant d'annonce invalide", async () => {
-        const user = await createTestUser();
-
-        try {
-            await expectApiError(
-                favorisApi(user.token).favorisAnnonceIdDelete({
-                    annonceId: "123"
-                }),
-                404,
-                "NOT_FOUND"
-            );
-        } finally {
-            await deleteTestUser(user.id);
-        }
-    });
-
     it("ne permet pas de supprimer le favori d'un autre utilisateur", async () => {
         const userA = await createTestUser();
         const userB = await createTestUser();

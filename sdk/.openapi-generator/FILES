@@ -1,5 +1,6 @@
 apis/AnnoncesApi.ts
 apis/AuthApi.ts
+apis/FavorisApi.ts
 apis/QuestionsApi.ts
 apis/UsersApi.ts
 apis/index.ts
@@ -20,6 +21,11 @@ docs/CreateQuestionInput.md
 docs/CreateUserInput.md
 docs/DeleteQuestion200Response.md
 docs/DeleteUser200Response.md
+docs/FavoriDeleteResponse.md
+docs/FavoriResponse.md
+docs/FavoriResponseData.md
+docs/FavorisApi.md
+docs/FavorisPostRequest.md
 docs/GetAllUsers200Response.md
 docs/GetMesAnnonces200Response.md
 docs/ListAnnonces200Response.md
@@ -59,6 +65,10 @@ models/CreateQuestionInput.ts
 models/CreateUserInput.ts
 models/DeleteQuestion200Response.ts
 models/DeleteUser200Response.ts
+models/FavoriDeleteResponse.ts
+models/FavoriResponse.ts
+models/FavoriResponseData.ts
+models/FavorisPostRequest.ts
 models/GetAllUsers200Response.ts
 models/GetMesAnnonces200Response.ts
 models/ListAnnonces200Response.ts

@@ -16,7 +16,7 @@ export function createFavoriService(prisma: PrismaClient) {
       });
 
       if (!annonce) {
-        return { error: "ANNONCE_NOT_FOUND" as const };
+        return { error: "NOT_FOUND" as const };
       }
 
       // Vérifier si l'annonce est déjà dans les favoris

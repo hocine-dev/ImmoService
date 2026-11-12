@@ -1234,6 +1234,91 @@ paths:
                   message: Trop de tentatives, réessayez plus tard
                   details: {}
 
+  /favoris:
+    post:
+      tags:
+        - Favoris
+      summary: Ajouter une annonce aux favoris
+      operationId: favorisPost
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FavorisPostRequest"
+      responses:
+        "201":
+          description: Annonce ajoutée aux favoris
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FavoriResponse"
+        "400":
+          description: Données invalides
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          description: Utilisateur non authentifié
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "404":
+          description: Annonce introuvable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "409":
+          description: Favori déjà existant
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
+  /favoris/{annonceId}:
+    delete:
+      tags:
+        - Favoris
+      summary: Supprimer une annonce des favoris
+      operationId: favorisAnnonceIdDelete
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: annonceId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Favori supprimé
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FavoriDeleteResponse"
+        "400":
+          description: Identifiant invalide
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          description: Utilisateur non authentifié
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "404":
+          description: Favori introuvable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
 
 components:
   securitySchemes:
@@ -1805,4 +1890,51 @@ components:
         pages:
           type: integer
           example: 5
+
+    FavorisPostRequest:
+      type: object
+      required:
+        - annonceId
+      properties:
+        annonceId:
+          type: string
+          example: "cm123456789abcdef12345678"
+
+    FavoriResponse:
+      type: object
+      required:
+        - success
+        - data
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: object
+          required:
+            - id
+            - userId
+            - annonceId
+          properties:
+            id:
+              type: string
+              example: "cmfavori123456789abcdef"
+            userId:
+              type: string
+              example: "cmuser123456789abcdef"
+            annonceId:
+              type: string
+              example: "cmannonce123456789abcdef"
+
+    FavoriDeleteResponse:
+      type: object
+      required:
+        - success
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: "Favori supprimé avec succès"
 

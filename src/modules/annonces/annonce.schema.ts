@@ -50,7 +50,7 @@ export const annonceQuerySchema = z.object({
   // Le prix est reçu comme une chaîne, puis converti en nombre après avoir
   // refusé les formats ambigus (signe, notation scientifique ou valeur vide).
   prixMax: z.string()
-    .regex(/^(0|[1-9]\d*)(\.\d+)?$/)
+    .regex(/^(0|[1-9]\d*)(\.\d{1,2})?$/)
     .transform(Number)
     .pipe(
       z.number()
@@ -75,8 +75,150 @@ export const annonceIdSchema = z.object({
 
 
 
+/**
+ * Validation des données reçues lors de la création d'une annonce.
+ * POST /annonces
+ */
+export const createAnnonceSchema = z.object({
+  titre: z.string().trim().min(1),
+  description: z.string().trim().min(1),
+
+  type: z.enum(["VENTE", "LOCATION"]),
+
+  typePropriete: z.enum([
+    "APPARTEMENT",
+    "MAISON",
+    "VILLA",
+    "STUDIO",
+    "LOFT"
+  ]),
+
+  // Prix positif, avec 2 décimales maximum.
+  // Une chaîne évite les imprécisions des nombres flottants.
+  prix: z.string()
+    .regex(
+      /^(0|[1-9]\d{0,9})(\.\d{1,2})?$/,
+      "Prix invalide (2 décimales maximum)"
+    )
+    .refine(prix => Number(prix) > 0, "Le prix doit être positif"),
+
+  ville: z.string().trim().min(1).max(100),
+
+  surface: z.number().int().min(9).max(2000),
+  chambres: z.number().int().min(0).max(20),
+
+  // Champs facultatifs avec valeurs par défaut dans Prisma.
+  etat: z.enum(["DISPONIBLE", "LOUE", "VENDU"]).optional(),
+  dateDisponibilite: z.string().datetime({ offset: true }).optional()
+
+}).strict();
+
+
+/**
+ * Validation des données de modification d'une annonce.
+ * PATCH /annonces/:id
+ *
+ * .partial() rend tous les champs facultatifs :
+ * le client peut modifier uniquement le prix, par exemple.
+ *
+ * On réutilise les mêmes règles métier que pour POST :
+ * surface, chambres, prix, types de propriétés, etc.
+ */
+export const updateAnnonceSchema = createAnnonceSchema
+  .partial()
+  .refine(
+    data => Object.keys(data).length > 0,
+    { message: "Au moins un champ doit être fourni" }
+  );
+
+
+
+/**
+ * Schémas de validation des requêtes HTTP du module annonces.
+ *
+ * Le middleware commun attend un objet contenant :
+ * - query  : paramètres de recherche ;
+ * - params : paramètres présents dans l'URL ;
+ * - body   : données JSON envoyées par le client.
+ */
+
+// GET /annonces
+export const listAnnoncesRequestSchema = z.object({
+  query: annonceQuerySchema
+});
+
+// GET /annonces/:id
+export const detailAnnonceRequestSchema = z.object({
+  params: annonceIdSchema
+});
+
+// POST /annonces
+export const createAnnonceRequestSchema = z.object({
+  body: createAnnonceSchema
+});
+
+// PATCH /annonces/:id
+// L'identifiant et le corps sont validés ensemble.
+export const updateAnnonceRequestSchema = z.object({
+  params: annonceIdSchema,
+  body: updateAnnonceSchema
+});
+
+
+/**
+ * Validation du changement de statut d'une annonce.
+ *
+ * PATCH /annonces/:id/statut
+ *
+ * PUBLIE   : rend l'annonce visible publiquement.
+ * BROUILLON : retire l'annonce de la liste publique.
+ *
+ * Aucun autre champ n'est accepté.
+ */
+export const changeStatutAnnonceRequestSchema = z.object({
+  params: annonceIdSchema,
+
+  body: z.object({
+    statut: z.enum(["BROUILLON", "PUBLIE"])
+  }).strict()
+});
+
+
+/**
+ * Paramètres de GET /annonces/miennes.
+ *
+ * Réutilise les filtres de GET /annonces :
+ * - page
+ * - limit
+ * - ville
+ * - type
+ * - prixMax
+ *
+ * Ajoute le filtre statut pour consulter
+ * les brouillons ou les annonces publiées.
+ */
+export const mesAnnoncesQuerySchema = annonceQuerySchema.extend({
+  statut: z.enum(["BROUILLON", "PUBLIE"]).optional()
+});
+
+/**
+ * Validation complète de la requête HTTP.
+ * Compatible avec le middleware commun validate().
+ */
+export const mesAnnoncesRequestSchema = z.object({
+  query: mesAnnoncesQuerySchema
+});
+
 // Dérive le type TypeScript directement du schéma afin que le code métier
 // reste synchronisé avec les données réellement validées.
 export type AnnonceQuery = z.infer<typeof annonceQuerySchema>;
 
 export type AnnonceIdParams = z.infer<typeof annonceIdSchema>;
+
+export type CreateAnnonceInput = z.infer<typeof createAnnonceSchema>;
+
+export type UpdateAnnonceInput = z.infer<typeof updateAnnonceSchema>;
+
+export type ChangeStatutAnnonceRequest = z.infer<typeof changeStatutAnnonceRequestSchema>;
+
+export type MesAnnoncesQuery = z.infer<typeof mesAnnoncesQuerySchema>;

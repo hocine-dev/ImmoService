@@ -3,8 +3,6 @@ import { AuthApi, Configuration, UsersApi } from "../../sdk/index.js";
 
 const baseUrl = "http://localhost:3002";
 
-// En-tête Authorization envoyé explicitement : fonctionne même si
-// `securitySchemes` n'est pas déclaré dans openapi.yaml.
 const usersApi = (token?: string) =>
     new UsersApi(new Configuration({
         basePath: baseUrl,
@@ -214,4 +212,19 @@ describe("POST /users/register - Tests E2E", () => {
         );
     });
 
+    it("retourne 400 pour un JSON mal formé", async () => {
+        // Cas impossible à produire avec le SDK : fetch brut.
+        const response = await fetch(`${baseUrl}/users/register`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: '{"name":'
+        });
+
+        expect(response.status).toBe(400);
+
+        const body = await response.json();
+
+        expect(body.error.code).toBe("VALIDATION_ERROR");
+        expect(body.error.details.body).toBeDefined();
+    });
 });

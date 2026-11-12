@@ -13,6 +13,7 @@ import { createUserRouter } from "./modules/user/user.route.js";
 import { createAuthRouter } from "./modules/auth/auth.route.js";
 import { createQuestionRouter } from "./modules/questions/question.route.js";
 import cors from "cors";
+import { createFavoriRouter } from "./modules/favoris/favori.route.js";
 
 
 /**
@@ -80,7 +81,7 @@ export function createApp(prisma: PrismaClient) {
   app.use("/users", createUserRouter(prisma));
   app.use("/auth", createAuthRouter(prisma));
   app.use("/questions", createQuestionRouter(prisma));
-
+   app.use("/favoris", createFavoriRouter(prisma));
 
 
   // Lecture de la documentation OpenAPI.

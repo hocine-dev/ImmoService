@@ -11,7 +11,7 @@ export type DataType = {
   name: string;
   email: string;
   password: string;
-  role?: Role;
+  role?: "USER" | "AGENT" | "ADMIN";
 }
 
 export function createUserService(prisma: PrismaClient) {

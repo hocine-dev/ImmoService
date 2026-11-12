@@ -13,14 +13,12 @@ import { createUserRouter } from "./modules/user/user.route.js";
 import { createAuthRouter } from "./modules/auth/auth.route.js";
 import { createQuestionRouter } from "./modules/questions/question.route.js";
 import cors from "cors";
-<<<<<<< HEAD
+
 import { createFavoriRouter } from "./modules/favoris/favori.route.js";
 
-
-=======
 import { createGraphqlAnnonceHandler } from "./graphql/annonces.js";
 import { optionalAuthMiddleware } from "./middlewares/auth.middleware.js";
->>>>>>> 018ee8ee49f321198003e949a17b63455e428dfe
+import { createGraphqlUserHandler } from "./graphql/user/userResolver.js";
 
 /**
  * Construit l'application Express.
@@ -91,12 +89,13 @@ export function createApp(prisma: PrismaClient) {
 
 
   // API GraphQL :lectures publiques.
+  // On doit regrouper les graphql
   app.all(
     "/graphql",
     optionalAuthMiddleware,
     createGraphqlAnnonceHandler(prisma)
   );
-
+  app.all("/graphql/annonces", optionalAuthMiddleware, createGraphqlUserHandler(prisma));
   // Lecture de la documentation OpenAPI.
   const openapi = YAML.parse(
     readFileSync("openapi.yaml", "utf8")

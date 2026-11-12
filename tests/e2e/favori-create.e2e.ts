@@ -93,22 +93,6 @@ async function expectApiError(
     return body;
 }
 
-async function debugApiError(promise: Promise<unknown>) {
-    try {
-        return await promise;
-    } catch (e) {
-        const error = e as { response?: Response };
-
-        console.error("STATUT :", error.response?.status);
-        console.error(
-            "BODY :",
-            await error.response?.clone().text()
-        );
-
-        throw e;
-    }
-}
-
 describe("POST /favoris - Tests E2E", () => {
 
     it("ajoute une annonce aux favoris", async () => {

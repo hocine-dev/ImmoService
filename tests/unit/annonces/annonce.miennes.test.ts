@@ -55,6 +55,12 @@ const annonceBrouillon = {
     photos: []
 };
 
+
+/**
+ * Ce fichier permet de tester la fonction findMesAnnonces()
+ * de notre Repository en utilisant des réponses Prisma simulées.
+ */
+
 describe("GET /annonces/miennes - Repository", () => {
 
     it("retourne les brouillons sans imposer PUBLIE", async () => {

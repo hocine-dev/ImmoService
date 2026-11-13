@@ -30,6 +30,16 @@ function createRepositoryMock(count: number) {
     };
 }
 
+/**
+ *
+ * 1. On simule la réponse de Prisma et on teste si le Repository
+ *    transmet les bons paramètres dans la clause where
+ *    de la requête Prisma.
+ *
+ * 2. On simule la réponse du Repository et on teste si le Service
+ *    transmet les bons paramètres au Repository.
+ */
+
 
 describe("DELETE annonce - Tests unitaires", () => {
 

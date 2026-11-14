@@ -20,6 +20,7 @@ import { createGraphqlAnnonceHandler } from "./graphql/annonces.js";
 import { optionalAuthMiddleware } from "./middlewares/auth.middleware.js";
 import { createGraphqlUserHandler } from "./graphql/user/userResolver.js";
 import { createGraphqlQuestionHandler } from "./graphql/question/questionResolver.js";
+import { createGraphqlFavoriHandler } from "./graphql/favoris/favoriResolver.js";
 
 /**
  * Construit l'application Express.
@@ -101,6 +102,11 @@ export function createApp(prisma: PrismaClient) {
     "/graphql/questions",
     optionalAuthMiddleware,
     createGraphqlQuestionHandler(prisma)
+);
+app.all(
+    "/graphql/favoris",
+    optionalAuthMiddleware,
+    createGraphqlFavoriHandler(prisma)
 );
   // Lecture de la documentation OpenAPI.
   const openapi = YAML.parse(

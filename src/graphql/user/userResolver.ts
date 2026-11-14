@@ -733,24 +733,25 @@ export function createGraphqlUserHandler(
             // 4. Gestion des erreurs métier
             if ("error" in result) {
                 if (result.error === "FORBIDDEN") {
-                    throw new GraphQLError(
-                        "Vous n'êtes pas autorisé à supprimer ce compte.",
-                        {
-                            extensions: {
-                                code: "FORBIDDEN"
-                            }
+                    return {
+                        supprime: false,
+                        erreur: {
+                            code:"FORBIDDEN",
+                            message:"Vous n'êtes pas autorisé à supprimer ce compte.",
+                            details:{}
                         }
-                    );
+                    };
                 }
-
-                throw new GraphQLError(
-                    "Utilisateur introuvable.",
-                    {
-                        extensions: {
-                            code: "NOT_FOUND"
+                if (result.error === "NOT_FOUND"){
+                    return {
+                        supprime: false,
+                        erreur: {
+                            code:"NOT_FOUND",
+                            message:"Utilisateur introuvable.",
+                            details:{}
                         }
-                    }
-                );
+                    };
+                }
             }
 
             // 5. Même réponse que le contrôleur REST

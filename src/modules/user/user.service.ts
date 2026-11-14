@@ -177,8 +177,8 @@ export function createUserService(prisma: PrismaClient) {
       );
 
       // Ne pas poursuivre si le profil est inaccessible ou inexistant.
-      if ("error" in user) {
-        return user;
+      if (!user) {
+        return { error: "NOT_FOUND" as const };
       }
 
       /**

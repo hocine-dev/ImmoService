@@ -85,19 +85,14 @@ async function createBrouillon(token: string, titre: string) {
 // PATCH /annonces/{id}/statut : fetch brut, le corps de la requête est défini en ligne
 // dans la spec (pas de schéma nommé donc pas de nom de paramètre SDK garanti).
 async function changeStatut(token: string, id: string, statut: "PUBLIE" | "BROUILLON") {
-    const response = await fetch(`${baseUrl}/annonces/${id}/statut`, {
-        method: "PATCH",
-        headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify({ statut })
-    });
+    const response = await annoncesApi(token).changeStatutAnnonceRaw({
+                id: id,
+                changeStatutAnnonceRequest: {
+                    statut
+                }
+            });
 
-    expect(
-        response.status,
-        `Changement de statut vers ${statut} refusé : ${await response.clone().text()}`
-    ).toBe(200);
+    expect(response.raw.status).toBe(200);
 }
 
 // Suppression : par cascade, elle supprime aussi les questions et les réponses.

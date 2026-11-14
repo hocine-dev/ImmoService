@@ -5,7 +5,7 @@ import {
     Configuration,
     UsersApi,
     FavorisApi
-} from "../../sdk/index.js";
+} from "../../../sdk/index.js";
 
 const baseUrl = "http://localhost:3002";
 const annonceId = "demo-immo-annonce-01";

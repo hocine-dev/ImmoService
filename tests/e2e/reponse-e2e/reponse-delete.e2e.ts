@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
-import { AnnoncesApi, AuthApi, Configuration, QuestionsApi } from "../../sdk/index.js";
+import { AnnoncesApi, AuthApi, Configuration, QuestionsApi } from "../../../sdk/index.js";
 
 const baseUrl = "http://localhost:3002";
 

@@ -4,7 +4,7 @@ import {
     AuthApi,
     Configuration,
     QuestionsApi
-} from "../../sdk/index.js";
+} from "../../../sdk/index.js";
 
 const baseUrl = "http://localhost:3002";
 

@@ -1,8 +1,8 @@
 
 import { describe, it, expect } from "vitest";
 
-const GRAPHQL_URL = "http://127.0.0.1:3002/graphql/reponses";
-const QUESTIONS_GRAPHQL_URL = "http://127.0.0.1:3002/graphql/questions";
+const GRAPHQL_URL = "http://127.0.0.1:3002/graphql";
+const QUESTIONS_GRAPHQL_URL = "http://127.0.0.1:3002/graphql";
 const LOGIN_URL = "http://127.0.0.1:3002/auth/login";
 
 const ANNONCE_ID = "demo-immo-annonce-01";

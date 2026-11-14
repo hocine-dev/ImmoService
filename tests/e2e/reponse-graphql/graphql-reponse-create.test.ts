@@ -1,7 +1,7 @@
 
 import { describe, it, expect } from "vitest";
 
-const GRAPHQL_URL = "http://127.0.0.1:3002/graphql/reponses";
+const GRAPHQL_URL = "http://127.0.0.1:3002/graphql";
 const LOGIN_URL = "http://127.0.0.1:3002/auth/login";
 
 const ANNONCE_ID = "demo-immo-annonce-01";
@@ -20,7 +20,7 @@ async function graphqlQuestion(
     query: string,
     token?: string
 ): Promise<GraphQLResult> {
-    const response = await fetch("http://127.0.0.1:3002/graphql/questions", {
+    const response = await fetch("http://127.0.0.1:3002/graphql", {
         method: "POST",
         headers: {
             "Content-Type": "application/json",

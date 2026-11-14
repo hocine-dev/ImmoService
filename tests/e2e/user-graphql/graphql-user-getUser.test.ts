@@ -1,7 +1,7 @@
 
 import { describe, it, expect } from "vitest";
 
-const GRAPHQL_URL = "http://127.0.0.1:3002/graphql/users";
+const GRAPHQL_URL = "http://127.0.0.1:3002/graphql";
 const AUTH_URL = "http://127.0.0.1:3002/auth/login";
 
 type GraphQLResult = {

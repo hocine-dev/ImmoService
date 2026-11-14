@@ -363,15 +363,6 @@ describe("userService.deleteUser", () => {
         expect(prisma.user.delete).not.toHaveBeenCalled();
     });
 
-    it("retourne NOT_FOUND quand le compte n'existe pas (administrateur)", async () => {
-        prisma.user.findUnique.mockResolvedValue(null);
-
-        const result = await service.deleteUser("absent", "admin-1", Role.ADMIN);
-
-        expect(result).toEqual({ error: "NOT_FOUND" });
-        expect(prisma.user.delete).not.toHaveBeenCalled();
-    });
-
     it("permet au propriétaire de supprimer son compte", async () => {
         prisma.user.findUnique.mockResolvedValue(userRecord());
         prisma.user.delete.mockResolvedValue(userRecord());

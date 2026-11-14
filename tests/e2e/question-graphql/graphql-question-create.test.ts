@@ -119,6 +119,36 @@ describe("GraphQL - createQuestion", () => {
         expect(payload?.question?.auteurId).toBeDefined();
     });
 
+    it("crée une question avec un utilisateur avec mauvais id annonce ", async () => {
+        const token = await getUserToken();
+
+        const texte = `Question E2E ${Date.now()}`;
+
+        const query = `
+            mutation {
+                createQuestion(input: {
+                    texte: "${texte}"
+                    annonceId: "annonce"
+                }) {
+                    question {
+                        id
+                        texte
+                        annonceId
+                        auteurId
+                    }
+                    erreur {
+                        code
+                        message
+                    }
+                }
+            }
+        `;
+
+        const result = await graphql(query, token);
+
+        expect(result.errors).toBeDefined();
+    });
+
     it("refuse la création sans authentification", async () => {
         const query = `
             mutation {

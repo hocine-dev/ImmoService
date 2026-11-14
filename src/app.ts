@@ -99,7 +99,7 @@ export function createApp(prisma: PrismaClient) {
     optionalAuthMiddleware,
     createGraphqlAnnonceHandler(prisma)
   );
-  app.all("/graphql/annonces", optionalAuthMiddleware, createGraphqlUserHandler(prisma));
+  app.all("/graphql/users", optionalAuthMiddleware, createGraphqlUserHandler(prisma));
   app.all(
     "/graphql/questions",
     optionalAuthMiddleware,

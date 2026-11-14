@@ -22,6 +22,7 @@ import { createGraphqlUserHandler } from "./graphql/user/userResolver.js";
 import { createGraphqlQuestionHandler } from "./graphql/question/questionResolver.js";
 import { createGraphqlFavoriHandler } from "./graphql/favoris/favoriResolver.js";
 import { createReponseRouter } from "./modules/reponses/reponse.route.js";
+import { createGraphqlReponseHandler } from "./graphql/reponse/reponseResolver.js";
 
 /**
  * Construit l'application Express.
@@ -109,6 +110,12 @@ app.all(
     "/graphql/favoris",
     optionalAuthMiddleware,
     createGraphqlFavoriHandler(prisma)
+);
+
+app.all(
+    "/graphql/reponses",
+    optionalAuthMiddleware,
+    createGraphqlReponseHandler(prisma)
 );
   // Lecture de la documentation OpenAPI.
   const openapi = YAML.parse(

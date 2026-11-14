@@ -1320,6 +1320,191 @@ paths:
               schema:
                 $ref: "#/components/schemas/ApiError"
 
+# ────────────────────────── RÉPONSES ──────────────────────────
+ 
+  /reponses/create:
+    post:
+      tags:
+        - Reponses
+      summary: Répondre à une question
+      description: |
+        Crée la réponse à une question.
+        Seul un ADMIN ou l'AGENT propriétaire de l'annonce concernée peut répondre.
+        L'auteur de la réponse est déterminé à partir du JWT, jamais à partir du body.
+        Les champs inconnus dans le body sont refusés (400).
+        Une question n'a qu'une seule réponse : une seconde tentative renvoie 409.
+      operationId: createReponse
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateReponseInput"
+            example:
+              texte: Oui, le logement est disponible dès le 1er du mois prochain.
+              questionId: clw3f8k2a0002question123456
+      responses:
+        "201":
+          description: Réponse créée avec succès.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, message, data]
+                properties:
+                  status:
+                    type: string
+                    example: success
+                  message:
+                    type: string
+                    example: Réponse ajoutée avec succès
+                  data:
+                    $ref: "#/components/schemas/Reponse"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          description: Question introuvable.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+              example:
+                error:
+                  code: NOT_FOUND
+                  message: Question introuvable
+                  details: {}
+        "409":
+          description: Cette question a déjà une réponse.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+              example:
+                error:
+                  code: CONFLICT
+                  message: Cette question a déjà une réponse
+                  details: {}
+ 
+  /reponses/question/{questionId}:
+    get:
+      tags:
+        - Reponses
+      summary: Consulter la réponse d'une question
+      description: |
+        Retourne la réponse d'une question, avec son auteur (`id`, `name`).
+ 
+        Règles d'accès, identiques à celles des questions :
+        - **Annonce publiée** : réponse consultable.
+        - **Brouillon** : réservé à l'ADMIN ou à l'AGENT propriétaire de l'annonce.
+ 
+        Pour ne pas révéler l'existence d'un brouillon, une question inexistante,
+        une question sans réponse et un accès refusé renvoient la même erreur 404.
+      operationId: getReponseByQuestion
+      # Le routeur exige actuellement un JWT.
+      # Si l'accès devient public (authentification facultative, comme
+      # GET /questions/annonce/{annonceId}), remplacer par :
+      #   security:
+      #     - {}
+      #     - bearerAuth: []
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: questionId
+          in: path
+          required: true
+          description: Identifiant CUID de la question.
+          schema:
+            type: string
+          example: clw3f8k2a0002question123456
+      responses:
+        "200":
+          description: Réponse de la question.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, data]
+                properties:
+                  status:
+                    type: string
+                    example: success
+                  data:
+                    $ref: "#/components/schemas/ReponseDetail"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          description: Question, réponse introuvable ou accès refusé.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+              example:
+                error:
+                  code: NOT_FOUND
+                  message: Réponse introuvable
+                  details: {}
+ 
+  /reponses/{id}:
+    delete:
+      tags:
+        - Reponses
+      summary: Supprimer une réponse
+      description: |
+        Supprime une réponse.
+        Seul l'auteur de la réponse ou un ADMIN peut effectuer cette action.
+      operationId: deleteReponse
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Identifiant CUID de la réponse.
+          schema:
+            type: string
+          example: clw3f8k2a0003reponse123456
+      responses:
+        "200":
+          description: Réponse supprimée.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, message]
+                properties:
+                  status:
+                    type: string
+                    example: success
+                  message:
+                    type: string
+                    example: Réponse supprimée avec succès
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          description: Réponse introuvable.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+              example:
+                error:
+                  code: NOT_FOUND
+                  message: Réponse introuvable
+                  details: {}
+ 
+ 
 components:
   securitySchemes:
     bearerAuth:
@@ -1745,8 +1930,9 @@ components:
                   type: string
             reponse:
               description: Réponse à la question, `null` si aucune réponse n'a été donnée.
-              type: [object, "null"]
-              additionalProperties: true
+              oneOf:
+                - $ref: "#/components/schemas/Reponse"
+                - type: "null"
 
     CreateQuestionInput:
       type: object
@@ -1761,6 +1947,60 @@ components:
           type: string
           minLength: 1
           description: Identifiant de l'annonce publiée concernée.
+
+# ── Réponses ──
+ 
+    Reponse:
+      type: object
+      required: [id, texte, createdAt, updatedAt, questionId, auteurId]
+      properties:
+        id:
+          type: string
+          example: clw3f8k2a0003reponse123456
+        texte:
+          type: string
+          example: Oui, le logement est disponible dès le 1er du mois prochain.
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        questionId:
+          type: string
+          description: Identifiant de la question (une seule réponse par question).
+        auteurId:
+          type: string
+          description: Identifiant de l'auteur de la réponse (issu du JWT).
+ 
+    ReponseDetail:
+      allOf:
+        - $ref: "#/components/schemas/Reponse"
+        - type: object
+          required: [auteur]
+          properties:
+            auteur:
+              type: object
+              required: [id, name]
+              properties:
+                id:
+                  type: string
+                name:
+                  type: string
+ 
+    CreateReponseInput:
+      type: object
+      additionalProperties: false
+      required: [texte, questionId]
+      properties:
+        texte:
+          type: string
+          minLength: 1
+          description: Texte de la réponse (espaces de début et de fin retirés).
+        questionId:
+          type: string
+          minLength: 1
+          description: Identifiant CUID de la question à laquelle on répond.
 
 # ── Users ──
 

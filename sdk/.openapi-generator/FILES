@@ -2,6 +2,7 @@ apis/AnnoncesApi.ts
 apis/AuthApi.ts
 apis/FavorisApi.ts
 apis/QuestionsApi.ts
+apis/ReponsesApi.ts
 apis/UsersApi.ts
 apis/index.ts
 docs/AnnonceCreee.md
@@ -18,8 +19,11 @@ docs/ChangeStatutAnnonceRequest.md
 docs/CreateAnnonceInput.md
 docs/CreateQuestion201Response.md
 docs/CreateQuestionInput.md
+docs/CreateReponse201Response.md
+docs/CreateReponseInput.md
 docs/CreateUserInput.md
 docs/DeleteQuestion200Response.md
+docs/DeleteReponse200Response.md
 docs/DeleteUser200Response.md
 docs/FavoriDeleteResponse.md
 docs/FavoriResponse.md
@@ -28,6 +32,7 @@ docs/FavorisApi.md
 docs/FavorisPostRequest.md
 docs/GetAllUsers200Response.md
 docs/GetMesAnnonces200Response.md
+docs/GetReponseByQuestion200Response.md
 docs/ListAnnonces200Response.md
 docs/ListAnnonces200ResponsePagination.md
 docs/ListQuestionsByAnnonce200Response.md
@@ -40,6 +45,9 @@ docs/QuestionDetail.md
 docs/QuestionDetailAllOfAuteur.md
 docs/QuestionsApi.md
 docs/RegisterUser201Response.md
+docs/Reponse.md
+docs/ReponseDetail.md
+docs/ReponsesApi.md
 docs/UpdateAnnonceInput.md
 docs/UpdateUser200Response.md
 docs/UpdateUserInput.md
@@ -62,8 +70,11 @@ models/ChangeStatutAnnonceRequest.ts
 models/CreateAnnonceInput.ts
 models/CreateQuestion201Response.ts
 models/CreateQuestionInput.ts
+models/CreateReponse201Response.ts
+models/CreateReponseInput.ts
 models/CreateUserInput.ts
 models/DeleteQuestion200Response.ts
+models/DeleteReponse200Response.ts
 models/DeleteUser200Response.ts
 models/FavoriDeleteResponse.ts
 models/FavoriResponse.ts
@@ -71,6 +82,7 @@ models/FavoriResponseData.ts
 models/FavorisPostRequest.ts
 models/GetAllUsers200Response.ts
 models/GetMesAnnonces200Response.ts
+models/GetReponseByQuestion200Response.ts
 models/ListAnnonces200Response.ts
 models/ListAnnonces200ResponsePagination.ts
 models/ListQuestionsByAnnonce200Response.ts
@@ -82,6 +94,8 @@ models/Question.ts
 models/QuestionDetail.ts
 models/QuestionDetailAllOfAuteur.ts
 models/RegisterUser201Response.ts
+models/Reponse.ts
+models/ReponseDetail.ts
 models/UpdateAnnonceInput.ts
 models/UpdateUser200Response.ts
 models/UpdateUserInput.ts

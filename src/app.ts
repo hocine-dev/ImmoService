@@ -21,6 +21,7 @@ import { optionalAuthMiddleware } from "./middlewares/auth.middleware.js";
 import { createGraphqlUserHandler } from "./graphql/user/userResolver.js";
 import { createGraphqlQuestionHandler } from "./graphql/question/questionResolver.js";
 import { createGraphqlFavoriHandler } from "./graphql/favoris/favoriResolver.js";
+import { createReponseRouter } from "./modules/reponses/reponse.route.js";
 
 /**
  * Construit l'application Express.
@@ -87,7 +88,8 @@ export function createApp(prisma: PrismaClient) {
   app.use("/users", createUserRouter(prisma));
   app.use("/auth", createAuthRouter(prisma));
   app.use("/questions", createQuestionRouter(prisma));
-   app.use("/favoris", createFavoriRouter(prisma));
+  app.use("/favoris", createFavoriRouter(prisma));
+  app.use("/reponses", createReponseRouter(prisma));
 
 
   // API GraphQL :lectures publiques.

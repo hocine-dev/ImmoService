@@ -13,6 +13,13 @@
  */
 
 import { mapValues, parseDate, parseDateTime, serializeDate, serializeDateTime } from '../runtime.js';
+import type { Reponse } from './Reponse.js';
+import {
+    ReponseFromJSON,
+    ReponseFromJSONTyped,
+    ReponseToJSON,
+    ReponseToJSONTyped,
+} from './Reponse.js';
 import type { QuestionDetailAllOfAuteur } from './QuestionDetailAllOfAuteur.js';
 import {
     QuestionDetailAllOfAuteurFromJSON,
@@ -54,7 +61,7 @@ export interface QuestionDetail {
     /**
      * Réponse à la question, `null` si aucune réponse n'a été donnée.
      */
-    reponse: { [key: string]: any; } | null;
+    reponse: Reponse | null;
 }
 
 /**
@@ -87,7 +94,7 @@ export function QuestionDetailFromJSONTyped(json: any, ignoreDiscriminator: bool
         'auteurId': json['auteurId'],
         'annonceId': json['annonceId'],
         'auteur': QuestionDetailAllOfAuteurFromJSON(json['auteur']),
-        'reponse': json['reponse'],
+        'reponse': ReponseFromJSON(json['reponse']),
     };
 }
 
@@ -108,7 +115,7 @@ export function QuestionDetailToJSONTyped(value?: QuestionDetail | null, ignoreD
         'auteurId': value['auteurId'],
         'annonceId': value['annonceId'],
         'auteur': QuestionDetailAllOfAuteurToJSON(value['auteur']),
-        'reponse': value['reponse'],
+        'reponse': ReponseToJSON(value['reponse']),
     };
 }
 

@@ -12,7 +12,7 @@ Name | Type
 `auteurId` | string
 `annonceId` | string
 `auteur` | [QuestionDetailAllOfAuteur](QuestionDetailAllOfAuteur.md)
-`reponse` | { [key: string]: any; }
+`reponse` | [Reponse](Reponse.md)
 
 ## Example
 

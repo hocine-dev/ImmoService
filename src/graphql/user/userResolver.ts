@@ -1,234 +1,10 @@
 
-import { createHandler } from "graphql-http/lib/use/express";
 import { createUserService, DataType, Role } from "../../modules/user/user.service.js";
 import { PrismaClient } from "../../generated/prisma/client.js";
 import { createUserSchema, getUserByIdSchema, getUsersSchema, updateUserSchema } from "../../modules/user/user.schema.js";
 
-import { buildSchema, GraphQLError } from "graphql";
+import { GraphQLError } from "graphql";
 
-const schema = buildSchema(`
- 
-# ─────────────────────────── Scalaires ───────────────────────────
- 
-"Date et heure au format ISO 8601."
-scalar DateTime
- 
-"Montant décimal sérialisé en chaîne (ex. 250000.00), comme dans l'API REST."
-scalar Decimal
-   
-
-# ───────────────────────────── Enums ─────────────────────────────
-
-enum Role {
-  USER
-  AGENT
-  ADMIN
-}
-
-enum AnnonceType {
-  VENTE
-  LOCATION
-}
-
-enum TypePropriete {
-  APPARTEMENT
-  MAISON
-  VILLA
-  STUDIO
-  LOFT
-}
-
-enum EtatAnnonce {
-  DISPONIBLE
-  LOUE
-  VENDU
-}
-
-enum StatutAnnonce {
-  BROUILLON
-  PUBLIE
-}
-
-# ───────────────────────────── Types ─────────────────────────────
-
-"Utilisateur tel que retourné par l'inscription et la mise à jour."
-type User {
-  id: ID!
-  name: String!
-  email: String!
-  role: Role!
-  createdAt: DateTime!
-  updatedAt: DateTime!
-}
-
-"Vue réduite d'un utilisateur, utilisée dans la liste (ADMIN uniquement)."
-type UserSummary {
-  id: ID!
-  name: String!
-  email: String!
-  role: Role!
-  createdAt: DateTime!
-}
-
-"Informations de pagination (calculées par le service)."
-type PageInfo {
-  page: Int!
-  limit: Int!
-  total: Int!
-  pages: Int!
-}
-
-"Page d'utilisateurs."
-type UserPage {
-  data: [UserSummary!]!
-  pagination: PageInfo!
-}
-
-"""
-Annonce d'un utilisateur.
-"""
-type Annonce {
-  id: ID!
-  titre: String!
-  description: String
-  type: AnnonceType!
-  typePropriete: TypePropriete!
-  etat: EtatAnnonce!
-  statut: StatutAnnonce!
-  prix: Decimal!
-  ville: String!
-  surface: Int
-  chambres: Int
-  dateDisponibilite: DateTime
-  auteurId: ID!
-  createdAt: DateTime!
-  updatedAt: DateTime!
-}
-
-"""
-Favori d'un utilisateur.
-"""
-type Favori {
-  id: ID!  
-  userId: ID!
-  annonceId: ID!
-  createdAt: DateTime
-}
-
-"Pagination distincte pour les annonces et les favoris d'un profil."
-type UserProfilePagination {
-  annonces: PageInfo!
-  favoris: PageInfo!
-}
-
-"""
-Profil complet d'un utilisateur, avec ses annonces et ses favoris paginés.
-"""
-type UserProfile {
-  id: ID!
-  name: String!
-  email: String!
-  role: Role!
-  createdAt: DateTime!
-  updatedAt: DateTime!
-  annonces: [Annonce!]!
-  favoris: [Favori!]!
-  pagination: UserProfilePagination!
-}
-
-# ───────────────────────────── Erreurs ────────────────────────────
-type ErreurChamp {
-        champ: String!
-        messages: [String!]!
-    }
-
-type ErreurValidation {
-        code: String!
-        message: String!
-        details: [ErreurChamp!]!
-    }
-
-# ───────────────────────────── Inputs ────────────────────────────
-
-"""
-Données d'inscription.
-"""
-input CreateUserInput {
-  name: String!
-  email: String!
-  password: String!
-}
-
-"""
-Données de modification. Tous les champs sont facultatifs.
-"""
-input UpdateUserInput {
-  name: String
-  email: String
-  role: Role
-}
-
-# ───────────────────────────── Playlaod ─────────────────────────────
-
-type CreateUserPayload {
-  user: User
-  erreur: ErreurValidation
-}
-
-type UpdateUserPayload {
-  user: User
-  erreur: ErreurValidation
-}
-
-"Résultat d'une suppression de compte."
-type DeleteUserPayload {
-    supprime: Boolean!
-    erreur: ErreurValidation
-}
-
-type UserProfilePayload {
-  user: UserProfile
-  erreur: ErreurValidation
-}
-
-type UserPagePayload {
-    userPage: UserPage
-    erreur: ErreurValidation
-}
-
-# ───────────────────────────── Query ─────────────────────────────
-
-type Query {
-  """
-  Liste paginée des utilisateurs.
-  """
-  users(page: Int = 1, limit: Int = 10): UserPagePayload!
-
-  """
-  Profil d'un utilisateur avec ses annonces et ses favoris.
-  """
-  user(id: ID!, page: Int = 1, limit: Int = 10): UserProfilePayload!
-}
-
-# ──────────────────────────── Mutation ───────────────────────────
-
-type Mutation {
-  """
-  Inscription d'un nouvel utilisateur
-  """
-  registerUser(input: CreateUserInput!): CreateUserPayload!
-
-  """
-  Modifie un utilisateur.
-  """
-  updateUser(id: ID!, input: UpdateUserInput!): UpdateUserPayload!
-
-  """
-  Supprime un compte utilisateur.
-  """
-  deleteUser(id: ID!): DeleteUserPayload!
-}
-    `);
 
 
 
@@ -354,7 +130,18 @@ async function executeSafely<T>(
     try {
         return await operation();
     } catch (error) {
-        console.error("Erreur GraphQL :", error);
+        // Les erreurs GraphQL prévues (401, 403, 404, validation...)
+        // ne nécessitent pas de stack trace.
+        if (!(error instanceof GraphQLError)) {
+
+            if (process.env.NODE_ENV === "development") {
+                // Diagnostic détaillé uniquement en développement local.
+                console.error("Erreur GraphQL inattendue :", error);
+            } else {
+                // En test/CI et en production, aucun chemin interne.
+                console.error("Erreur GraphQL inattendue");
+            }
+        }
 
         throw toGraphQLError(error);
     }
@@ -366,7 +153,7 @@ async function executeSafely<T>(
  * Les opérations réutilisent le service REST existant.
  * Aucune logique métier n'est dupliquée ici.
  */
-export function createGraphqlUserHandler(
+export function createGraphqlUserResolvers(
     prisma: PrismaClient
 ) {
     const userService = createUserService(prisma);
@@ -762,16 +549,8 @@ export function createGraphqlUserHandler(
         })
     };
 
-    return createHandler({
-         schema,
-        rootValue: {
-            ...rootValue,
-            ...mutationResolvers
-        },
-
-        // Le middleware JWT Express fournit req.user.
-        context: request => ({
-            viewer: request.raw.user
-        })
-    });
+    return {
+        ...rootValue,
+        ...mutationResolvers
+    };
 }

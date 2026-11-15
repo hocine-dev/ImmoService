@@ -1,6 +1,6 @@
 
 import { describe, it, expect } from "vitest";
-import { AnnoncesApi, Configuration } from "../../sdk/index.js";
+import { AnnoncesApi, Configuration } from "../../../sdk/index.js";
 
 // Le serveur E2E démarre automatiquement sur le port 3002.
 const GRAPHQL_URL = "http://127.0.0.1:3002/graphql";

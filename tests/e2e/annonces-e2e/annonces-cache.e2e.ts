@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { AnnoncesApi, Configuration } from "../../sdk/index.js";
+import { AnnoncesApi, Configuration } from "../../../sdk/index.js";
 
 const baseUrl = "http://localhost:3002";
 

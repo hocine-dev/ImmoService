@@ -15,7 +15,7 @@ export type DataType = {
 }
 
 export function createUserService(prisma: PrismaClient) {
-  return {    
+  return {
     // GET : Récupérer tous les utilisateurs
     async getAllUsers(role: Role, page: number, limit: number) {
       if (role !== Role.ADMIN) return null;
@@ -177,8 +177,8 @@ export function createUserService(prisma: PrismaClient) {
       );
 
       // Ne pas poursuivre si le profil est inaccessible ou inexistant.
-      if (!user) {
-        return { error: "NOT_FOUND" as const };
+      if ("error" in user) {
+        return user;
       }
 
       /**

@@ -1,6 +1,5 @@
 
-import { createHandler } from "graphql-http/lib/use/express";
-import { buildSchema, GraphQLError } from "graphql";
+import { GraphQLError } from "graphql";
 import { z } from "zod";
 
 import type { PrismaClient } from "../../generated/prisma/client.js";
@@ -13,67 +12,6 @@ import {
     getReponseByQuestionSchema,
     deleteReponseSchema,
 } from "../../modules/reponses/reponse.schema.js";
-
-/**
- * Schéma GraphQL
- */
-const schema = buildSchema(`
-    scalar DateTime
-
-    type ReponseAuteur {
-        id: ID!
-        name: String!
-    }
-
-    type Reponse {
-        id: ID!
-        texte: String!
-        questionId: ID!
-        auteurId: ID!
-        createdAt: DateTime!
-        auteur: ReponseAuteur
-    }
-
-    type ErreurChamp {
-        champ: String!
-        messages: [String!]!
-    }
-
-    type ErreurValidation {
-        code: String!
-        message: String!
-        details: [ErreurChamp!]!
-    }
-
-    input CreateReponseInput {
-        texte: String!
-        questionId: ID!
-    }
-
-    type CreateReponsePayload {
-        reponse: Reponse
-        erreur: ErreurValidation
-    }
-
-    type ReponsePayload {
-        reponse: Reponse
-        erreur: ErreurValidation
-    }
-
-    type DeleteReponsePayload {
-        supprime: Boolean!
-        erreur: ErreurValidation
-    }
-
-    type Query {
-        reponseByQuestion(questionId: ID!): ReponsePayload!
-    }
-
-    type Mutation {
-        createReponse(input: CreateReponseInput!): CreateReponsePayload!
-        deleteReponse(id: ID!): DeleteReponsePayload!
-    }
-`);
 
 /**
  * Utilisateur authentifié par le middleware JWT.
@@ -178,7 +116,19 @@ async function executeSafely<T>(
     try {
         return await operation();
     } catch (error) {
-        console.error("Erreur GraphQL :", error);
+        // Les erreurs GraphQL prévues (401, 403, 404, validation...)
+        // ne nécessitent pas de stack trace.
+        if (!(error instanceof GraphQLError)) {
+
+            if (process.env.NODE_ENV === "development") {
+                // Diagnostic détaillé uniquement en développement local.
+                console.error("Erreur GraphQL inattendue :", error);
+            } else {
+                // En test/CI et en production, aucun chemin interne.
+                console.error("Erreur GraphQL inattendue");
+            }
+        }
+
         throw toGraphQLError(error);
     }
 }
@@ -189,7 +139,7 @@ async function executeSafely<T>(
  * Les opérations réutilisent le service REST existant.
  * Les règles métier restent dans le service.
  */
-export function createGraphqlReponseHandler(
+export function createGraphqlReponseResolvers(
     prisma: PrismaClient
 ) {
     const reponseService = createReponseService(prisma);
@@ -440,15 +390,5 @@ export function createGraphqlReponseHandler(
         }),
     };
 
-    return createHandler({
-        schema,
-        rootValue,
-
-        // Le middleware JWT Express fournit req.user.
-        // Le middleware d'authentification facultative laisse
-        // viewer undefined lorsqu'aucun token n'est fourni.
-        context: request => ({
-            viewer: request.raw.user,
-        }),
-    });
+    return rootValue;
 }

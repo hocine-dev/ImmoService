@@ -1,6 +1,5 @@
 
-import { createHandler } from "graphql-http/lib/use/express";
-import { buildSchema, GraphQLError } from "graphql";
+import { GraphQLError } from "graphql";
 import { z } from "zod";
 
 import type { PrismaClient } from "../../generated/prisma/client.js";
@@ -8,134 +7,6 @@ import { createFavoriService } from "../../modules/favoris/favori.service.js";
 import { createFavoriSchema, deleteFavoriSchema } from "../../modules/favoris/favori.schema.js";
 
 
-
-/**
- * Schéma GraphQL des favoris.
- */
-const schema = buildSchema(`
-
-# ───────────────────────────── Scalaires ─────────────────────────────
-
-scalar DateTime
-scalar Decimal
-
-# ───────────────────────────── Enums ─────────────────────────────────
-
-enum AnnonceType {
-    VENTE
-    LOCATION
-}
-
-enum TypePropriete {
-    APPARTEMENT
-    MAISON
-    VILLA
-    STUDIO
-    LOFT
-}
-
-enum EtatAnnonce {
-    DISPONIBLE
-    LOUE
-    VENDU
-}
-
-enum StatutAnnonce {
-    BROUILLON
-    PUBLIE
-}
-
-# ───────────────────────────── Types ──────────────────────────────────
-
-"""
-Annonce associée au favori.
-"""
-type Annonce {
-    id: ID!
-    titre: String!
-    description: String
-    type: AnnonceType!
-    typePropriete: TypePropriete!
-    etat: EtatAnnonce!
-    statut: StatutAnnonce!
-    prix: Decimal!
-    ville: String!
-    surface: Int
-    chambres: Int
-    dateDisponibilite: DateTime
-    auteurId: ID!
-    createdAt: DateTime!
-    updatedAt: DateTime!
-}
-
-"""
-Favori d'un utilisateur.
-"""
-type Favori {
-    id: ID!
-    userId: ID!
-    annonceId: ID!
-    annonce: Annonce!
-}
-
-# ───────────────────────────── Erreurs ────────────────────────────────
-
-type ErreurChamp {
-    champ: String!
-    messages: [String!]!
-}
-
-type ErreurValidation {
-    code: String!
-    message: String!
-    details: [ErreurChamp!]!
-}
-
-# ───────────────────────────── Inputs ─────────────────────────────────
-
-"""
-Données nécessaires pour ajouter une annonce aux favoris.
-"""
-input CreateFavoriInput {
-    annonceId: ID!
-}
-
-# ───────────────────────────── Payloads ───────────────────────────────
-
-type CreateFavoriPayload {
-    favori: Favori
-    erreur: ErreurValidation
-}
-
-type DeleteFavoriPayload {
-    supprime: Boolean!
-    erreur: ErreurValidation
-}
-
-# ───────────────────────────── Query ──────────────────────────────────
-
-type Query {
-    _empty: Boolean
-}
-
-# ───────────────────────────── Mutation ───────────────────────────────
-
-type Mutation {
-
-    """
-    Ajouter une annonce aux favoris.
-    Authentification obligatoire.
-    """
-    createFavori(input: CreateFavoriInput!): CreateFavoriPayload!
-
-    """
-    Retirer une annonce des favoris.
-    Authentification obligatoire.
-    """
-    deleteFavori(annonceId: ID!): DeleteFavoriPayload!
-}
-
-`);
 
 /**
  * Utilisateur authentifié par le middleware JWT.
@@ -243,7 +114,19 @@ async function executeSafely<T>(
     try {
         return await operation();
     } catch (error) {
-        console.error("Erreur GraphQL :", error);
+        // Les erreurs GraphQL prévues (401, 403, 404, validation...)
+        // ne nécessitent pas de stack trace.
+        if (!(error instanceof GraphQLError)) {
+
+            if (process.env.NODE_ENV === "development") {
+                // Diagnostic détaillé uniquement en développement local.
+                console.error("Erreur GraphQL inattendue :", error);
+            } else {
+                // En test/CI et en production, aucun chemin interne.
+                console.error("Erreur GraphQL inattendue");
+            }
+        }
+
         throw toGraphQLError(error);
     }
 }
@@ -254,22 +137,12 @@ async function executeSafely<T>(
  * Les opérations réutilisent le service REST existant.
  * Aucune logique métier n'est dupliquée.
  */
-export function createGraphqlFavoriHandler(
+export function createGraphqlFavoriResolvers(
     prisma: PrismaClient
 ) {
     const favoriService = createFavoriService(prisma);
 
     const rootValue = {
-
-        // ───────────────────────── QUERY ─────────────────────────
-
-        /**
-         * Query._empty
-         *
-         * Champ technique : ce module expose uniquement
-         * des mutations pour le moment.
-         */
-        _empty: () => true,
 
         // ─────────────────────── MUTATIONS ───────────────────────
 
@@ -412,13 +285,5 @@ export function createGraphqlFavoriHandler(
         })
     };
 
-    return createHandler({
-        schema,
-        rootValue,
-
-        // Le middleware JWT Express fournit req.user.
-        context: request => ({
-            viewer: request.raw.user
-        })
-    });
+    return rootValue;
 }

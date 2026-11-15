@@ -30,6 +30,26 @@ type GraphQLResult = {
                 message: string;
             } | null;
         };
+        user?: {
+            user?: {
+                favoris: {
+                    id: string;
+                    annonceId: string;
+                    annonce: {
+                        id: string;
+                        titre: string;
+                        auteur: {
+                            id: string;
+                            name: string;
+                        } | null;
+                    } | null;
+                }[];
+            } | null;
+            erreur?: {
+                code: string;
+                message: string;
+            } | null;
+        };
     } | null;
     errors?: Array<{ message: string }>;
 };
@@ -130,6 +150,46 @@ describe("GraphQL favoris - Tests E2E", () => {
         expect(favori).toBeDefined();
         expect(favori?.annonceId).toBe("demo-immo-annonce-12");
         expect(favori?.annonce.id).toBe("demo-immo-annonce-12");
+
+        // Vérifie que le profil utilisateur résout aussi
+        // l'annonce associée à un favori.
+        const profil = await graphql(`
+            query {
+                user(id: "${favori?.userId}") {
+                    user {
+                        favoris {
+                            id
+                            annonceId
+                            annonce {
+                                id
+                                titre
+                                auteur {
+                                    id
+                                    name
+                                }
+                            }
+                        }
+                    }
+                    erreur {
+                        code
+                        message
+                    }
+                }
+            }
+        `, user);
+
+        expect(profil.errors).toBeUndefined();
+        expect(profil.data?.user?.erreur).toBeNull();
+
+        const favoriProfil = profil.data?.user?.user?.favoris.find(
+            f => f.id === favori?.id
+        );
+
+        expect(favoriProfil).toBeDefined();
+        expect(favoriProfil?.annonce?.id)
+            .toBe("demo-immo-annonce-12");
+        expect(favoriProfil?.annonce?.titre).toBeTruthy();
+        expect(favoriProfil?.annonce?.auteur?.id).toBeTruthy();
 
         // Nettoyage du favori créé.
         await graphql(`

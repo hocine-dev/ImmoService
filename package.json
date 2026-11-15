@@ -18,7 +18,7 @@
     "db:seed": "prisma db seed",
     "test": "npm run test:unit && npm run test:e2e",
     "test:unit": "vitest run tests/unit/",
-    "test:e2e": "vitest run --config vitest.e2e.config.ts --no-file-parallelism",
+    "test:e2e": "RATE_LIMIT_DISABLED=true vitest run --config vitest.e2e.config.ts --no-file-parallelism",
     "sdk:generate": "openapi-generator-cli generate -i openapi.yaml -g typescript-fetch -o ./sdk --additional-properties=importFileExtension=.js",
     "pretest": "npm run sdk:generate"
   },

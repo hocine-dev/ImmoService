@@ -29,7 +29,7 @@ const generalLimiter = rateLimit({
 // Limite stricte pour login (anti brute-force)
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 5, // 5 tentatives max
+  max: 14, // La 15e tentative échouée retourne 429.
   skip: disabled,
   /**
    * Protection contre les tentatives répétées de connexion.

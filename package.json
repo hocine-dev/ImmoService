@@ -16,11 +16,13 @@
     "db:migrate": "prisma migrate dev",
     "db:deploy": "prisma migrate deploy",
     "db:seed": "prisma db seed",
-    "test": "npm run test:unit && npm run test:e2e",
+    "test:prepare": "node scripts/prepare-e2e-db.mjs",
+    "test": "npm run test:unit && npm run test:e2e && npm run test:rate-limit",
     "test:unit": "vitest run tests/unit/",
-    "test:e2e": "RATE_LIMIT_DISABLED=true vitest run --config vitest.e2e.config.ts --no-file-parallelism",
+    "test:e2e": "RATE_LIMIT_DISABLED=true vitest run --config vitest.e2e.config.ts tests/e2e --exclude '**/limiter-e2e/**' --no-file-parallelism",
+    "test:rate-limit": "RATE_LIMIT_DISABLED=false vitest run --config vitest.e2e.config.ts tests/e2e/limiter-e2e/rate-limit.test.ts --no-file-parallelism",
     "sdk:generate": "openapi-generator-cli generate -i openapi.yaml -g typescript-fetch -o ./sdk --additional-properties=importFileExtension=.js",
-    "pretest": "npm run sdk:generate"
+    "pretest": "npm run sdk:generate && npm run db:generate && npm run test:prepare"
   },
   "dependencies": {
     "@prisma/adapter-pg": "7.10.1",

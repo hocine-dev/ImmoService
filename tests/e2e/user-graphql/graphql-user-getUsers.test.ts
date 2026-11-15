@@ -231,9 +231,8 @@ describe("GraphQL User - Liste des utilisateurs", () => {
 
         const result = await graphql(query, token);
 
-        expect(result.errors).toBeDefined();
-        expect(result.errors?.[0].extensions?.code).toBe(
-            "BAD_USER_INPUT"
-        );
+        expect(result.errors).toBeUndefined();
+        expect(result.data?.users?.userPage).toBeNull();
+        expect(result.data?.users?.erreur?.code).toBe("VALIDATION_ERROR");
     });
 });

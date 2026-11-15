@@ -206,18 +206,12 @@ export function createGraphqlUserResolvers(
             });
 
             if (!validation.success) {
-                throw new GraphQLError(
-                    "Paramètres de pagination invalides",
-                    {
-                        extensions: {
-                            code: "BAD_USER_INPUT",
-                            details: validation.error.issues.map(issue => ({
-                                champ: issue.path.map(String).join("."),
-                                message: issue.message
-                            }))
-                        }
-                    }
-                );
+                return {
+                    userPage: null,
+                    erreur: formatValidationError(
+                        validation.error.issues
+                    )
+                };
             }
 
             // 4. Réutilisation du service REST
@@ -280,18 +274,12 @@ export function createGraphqlUserResolvers(
             });
 
             if (!validation.success) {
-                throw new GraphQLError(
-                    "Paramètres de consultation invalides",
-                    {
-                        extensions: {
-                            code: "BAD_USER_INPUT",
-                            details: validation.error.issues.map(issue => ({
-                                champ: issue.path.map(String).join("."),
-                                message: issue.message
-                            }))
-                        }
-                    }
-                );
+                return {
+                    user: null,
+                    erreur: formatValidationError(
+                        validation.error.issues
+                    )
+                };
             }
 
             // 3. Réutilisation du service REST.

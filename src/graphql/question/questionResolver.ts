@@ -1,132 +1,10 @@
 
-import { createHandler } from "graphql-http/lib/use/express";
-import { buildSchema, GraphQLError } from "graphql";
+import { GraphQLError } from "graphql";
 
 import type { PrismaClient } from "../../generated/prisma/client.js";
 
 import { Role } from "../../modules/user/user.service.js";
 
-
-/**
- * Schéma GraphQL
- */
-const schema = buildSchema(`
-
-# ───────────────────────────── Scalaires ─────────────────────────────
-
-scalar DateTime
-
-# ───────────────────────────── Types ──────────────────────────────────
-
-"""
-Auteur d'une question.
-"""
-type QuestionAuteur {
-    id: ID!
-    name: String!
-}
-
-"""
-Question posée sur une annonce.
-"""
-type Question {
-    id: ID!
-    texte: String!
-    annonceId: ID!
-    auteurId: ID!
-    createdAt: DateTime!
-    auteur: QuestionAuteur
-}
-
-"""
-Informations de pagination.
-"""
-type PageInfo {
-    page: Int!
-    limit: Int!
-    total: Int!
-    pages: Int!
-}
-
-"""
-Liste paginée des questions.
-"""
-type QuestionPage {
-    data: [Question!]!
-    pagination: PageInfo!
-}
-
-# ───────────────────────────── Erreurs ────────────────────────────────
-
-type ErreurChamp {
-    champ: String!
-    messages: [String!]!
-}
-
-type ErreurValidation {
-    code: String!
-    message: String!
-    details: [ErreurChamp!]!
-}
-
-# ───────────────────────────── Inputs ─────────────────────────────────
-
-"""
-Données nécessaires pour poser une question.
-"""
-input CreateQuestionInput {
-    texte: String!
-    annonceId: ID!
-}
-
-# ───────────────────────────── Payloads ───────────────────────────────
-
-type CreateQuestionPayload {
-    question: Question
-    erreur: ErreurValidation
-}
-
-type QuestionPagePayload {
-    questionPage: QuestionPage
-    erreur: ErreurValidation
-}
-
-type DeleteQuestionPayload {
-    supprime: Boolean!
-    erreur: ErreurValidation
-}
-
-# ───────────────────────────── Query ──────────────────────────────────
-
-type Query {
-    """
-    Récupère les questions d'une annonce avec pagination.
-    Consultation publique si l'annonce est publiée.
-    """
-    questionsByAnnonce(
-        annonceId: ID!
-        page: Int = 1
-        limit: Int = 10
-    ): QuestionPagePayload!
-}
-
-# ───────────────────────────── Mutation ──────────────────────────────
-
-type Mutation {
-    """
-    Pose une question sur une annonce publiée.
-    Authentification obligatoire.
-    """
-    createQuestion(input: CreateQuestionInput!): CreateQuestionPayload!
-
-    """
-    Supprime une question.
-    Réservé à son auteur ou à un ADMIN.
-    """
-    deleteQuestion(id: ID!): DeleteQuestionPayload!
-}
-
-`);
 
 /**
  * Utilisateur authentifié par le middleware JWT.
@@ -222,7 +100,19 @@ async function executeSafely<T>(
     try {
         return await operation();
     } catch (error) {
-        console.error("Erreur GraphQL :", error);
+        // Les erreurs GraphQL prévues (401, 403, 404, validation...)
+        // ne nécessitent pas de stack trace.
+        if (!(error instanceof GraphQLError)) {
+
+            if (process.env.NODE_ENV === "development") {
+                // Diagnostic détaillé uniquement en développement local.
+                console.error("Erreur GraphQL inattendue :", error);
+            } else {
+                // En test/CI et en production, aucun chemin interne.
+                console.error("Erreur GraphQL inattendue");
+            }
+        }
+
         throw toGraphQLError(error);
     }
 }
@@ -233,7 +123,7 @@ async function executeSafely<T>(
  * Les opérations réutilisent le service REST existant.
  * Les règles métier restent dans le service et la policy.
  */
-export function createGraphqlQuestionHandler(
+export function createGraphqlQuestionResolvers(
     prisma: PrismaClient
 ) {
     const questionService = createQuestionService(prisma);
@@ -445,17 +335,7 @@ export function createGraphqlQuestionHandler(
         })
     };
 
-    return createHandler({
-        schema,
-        rootValue,
-
-        // Le middleware JWT Express fournit req.user.
-        // optionalAuthMiddleware laisse viewer undefined
-        // lorsqu'aucun token n'est fourni.
-        context: request => ({
-            viewer: request.raw.user
-        })
-    });
+    return rootValue;
 }
 
 /**

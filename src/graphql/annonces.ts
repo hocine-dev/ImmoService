@@ -9,6 +9,10 @@ import { createHandler } from "graphql-http/lib/use/express";
 import type { PrismaClient } from "../generated/prisma/client.js";
 
 import { createAuteurLoader } from "./auteur.loader.js";
+import { createGraphqlQuestionResolvers } from "./question/questionResolver.js";
+import { createGraphqlFavoriResolvers } from "./favoris/favoriResolver.js";
+import { createGraphqlReponseResolvers } from "./reponse/reponseResolver.js";
+import { createGraphqlUserResolvers } from "./user/userResolver.js";
 
 import {
     getAnnonceWriteScope
@@ -83,6 +87,22 @@ const schema = buildSchema(`
         ): AnnoncesPage!
 
         annonce(id: ID!): Annonce
+
+        questionsByAnnonce(
+            annonceId: ID!
+            page: Int = 1
+            limit: Int = 10
+        ): QuestionPagePayload!
+
+        reponseByQuestion(questionId: ID!): ReponsePayload!
+
+        users(page: Int = 1, limit: Int = 10): UserPagePayload!
+
+        user(
+            id: ID!
+            page: Int = 1
+            limit: Int = 10
+        ): UserProfilePayload!
     }
 
     enum TypeTransaction {
@@ -177,6 +197,196 @@ const schema = buildSchema(`
             id: ID!
             statut: StatutAnnonce!
         ): ChangerStatutAnnoncePayload!
+        createQuestion(input: CreateQuestionInput!): CreateQuestionPayload!
+        deleteQuestion(id: ID!): DeleteQuestionPayload!
+        createFavori(input: CreateFavoriInput!): CreateFavoriPayload!
+        deleteFavori(annonceId: ID!): DeleteFavoriPayload!
+        createReponse(input: CreateReponseInput!): CreateReponsePayload!
+        deleteReponse(id: ID!): DeleteReponsePayload!
+        registerUser(input: CreateUserInput!): CreateUserPayload!
+        updateUser(
+            id: ID!
+            input: UpdateUserInput!
+        ): UpdateUserPayload!
+        deleteUser(id: ID!): DeleteUserPayload!
+    }
+
+    scalar DateTime
+
+    type QuestionAuteur {
+        id: ID!
+        name: String!
+    }
+
+    type Question {
+        id: ID!
+        texte: String!
+        annonceId: ID!
+        auteurId: ID!
+        createdAt: DateTime!
+        auteur: QuestionAuteur
+    }
+
+    type QuestionPage {
+        data: [Question!]!
+        pagination: Pagination!
+    }
+
+    input CreateQuestionInput {
+        texte: String!
+        annonceId: ID!
+    }
+
+    type CreateQuestionPayload {
+        question: Question
+        erreur: ErreurValidation
+    }
+
+    type QuestionPagePayload {
+        questionPage: QuestionPage
+        erreur: ErreurValidation
+    }
+
+    type DeleteQuestionPayload {
+        supprime: Boolean!
+        erreur: ErreurValidation
+    }
+
+    type Favori {
+        id: ID!
+        userId: ID!
+        annonceId: ID!
+        annonce: Annonce
+    }
+
+    input CreateFavoriInput {
+        annonceId: ID!
+    }
+
+    type CreateFavoriPayload {
+        favori: Favori
+        erreur: ErreurValidation
+    }
+
+    type DeleteFavoriPayload {
+        supprime: Boolean!
+        erreur: ErreurValidation
+    }
+
+    type ReponseAuteur {
+        id: ID!
+        name: String!
+    }
+
+    type Reponse {
+        id: ID!
+        texte: String!
+        questionId: ID!
+        auteurId: ID!
+        createdAt: DateTime!
+        auteur: ReponseAuteur
+    }
+
+    input CreateReponseInput {
+        texte: String!
+        questionId: ID!
+    }
+
+    type CreateReponsePayload {
+        reponse: Reponse
+        erreur: ErreurValidation
+    }
+
+    type ReponsePayload {
+        reponse: Reponse
+        erreur: ErreurValidation
+    }
+
+    type DeleteReponsePayload {
+        supprime: Boolean!
+        erreur: ErreurValidation
+    }
+
+    enum Role {
+        USER
+        AGENT
+        ADMIN
+    }
+
+    type User {
+        id: ID!
+        name: String!
+        email: String!
+        role: Role!
+        createdAt: DateTime!
+        updatedAt: DateTime!
+    }
+
+    type UserSummary {
+        id: ID!
+        name: String!
+        email: String!
+        role: Role!
+        createdAt: DateTime!
+    }
+
+    type UserPage {
+        data: [UserSummary!]!
+        pagination: Pagination!
+    }
+
+    type UserProfilePagination {
+        annonces: Pagination!
+        favoris: Pagination!
+    }
+
+    type UserProfile {
+        id: ID!
+        name: String!
+        email: String!
+        role: Role!
+        createdAt: DateTime!
+        updatedAt: DateTime!
+        annonces: [Annonce!]!
+        favoris: [Favori!]!
+        pagination: UserProfilePagination!
+    }
+
+    input CreateUserInput {
+        name: String!
+        email: String!
+        password: String!
+    }
+
+    input UpdateUserInput {
+        name: String
+        email: String
+        role: Role
+    }
+
+    type CreateUserPayload {
+        user: User
+        erreur: ErreurValidation
+    }
+
+    type UpdateUserPayload {
+        user: User
+        erreur: ErreurValidation
+    }
+
+    type DeleteUserPayload {
+        supprime: Boolean!
+        erreur: ErreurValidation
+    }
+
+    type UserProfilePayload {
+        user: UserProfile
+        erreur: ErreurValidation
+    }
+
+    type UserPagePayload {
+        userPage: UserPage
+        erreur: ErreurValidation
     }
 
     type Auteur {
@@ -206,6 +416,30 @@ annonceType.getFields().auteur.resolve = (
     }
 ) => {
     return context.auteurLoader.load(annonce.id);
+};
+
+/**
+ * Résout la relation Favori.annonce.
+ *
+ * Réutilise la consultation d'annonce existante,
+ * avec les mêmes règles d'autorisation.
+ */
+const favoriType = schema.getType("Favori");
+
+if (!(favoriType instanceof GraphQLObjectType)) {
+    throw new Error("Type GraphQL Favori introuvable");
+}
+
+favoriType.getFields().annonce.resolve = (
+    favori: { annonceId: string },
+    _args: unknown,
+    context: {
+        chargerAnnonceFavori: (
+            id: string
+        ) => ReturnType<typeof getAnnonceById>;
+    }
+) => {
+    return context.chargerAnnonceFavori(favori.annonceId);
 };
 
 type ListeArgs = {
@@ -653,7 +887,11 @@ export function createGraphqlAnnonceHandler(
         schema,
         rootValue: {
             ...rootValue,
-            ...mutationResolvers
+            ...mutationResolvers,
+            ...createGraphqlQuestionResolvers(prisma),
+            ...createGraphqlFavoriResolvers(prisma),
+            ...createGraphqlReponseResolvers(prisma),
+            ...createGraphqlUserResolvers(prisma)
         },
 
         // Le middleware JWT Express a déjà
@@ -663,7 +901,14 @@ export function createGraphqlAnnonceHandler(
 
             // Nouvelle instance pour chaque requête HTTP.
             // Aucun cache partagé entre utilisateurs.
-            auteurLoader: createAuteurLoader(prisma)
+            auteurLoader: createAuteurLoader(prisma),
+
+            chargerAnnonceFavori: (id: string) =>
+                getAnnonceById(
+                    repository,
+                    id,
+                    request.raw.user
+                )
         })
     });
 }

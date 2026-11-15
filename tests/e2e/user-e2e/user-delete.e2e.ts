@@ -64,7 +64,6 @@ describe("DELETE /users/:id - Tests E2E", () => {
         const user = await createUser();
             try {
             const token = await getToken(user.email, user.password);
-            console.log(token)
             const response = await usersApi(token).deleteUserRaw({ id: user.id });
             const body = await response.value();
 
@@ -73,7 +72,6 @@ describe("DELETE /users/:id - Tests E2E", () => {
 
             // Le compte doit avoir disparu.
             const adminToken = await getAdminToken();
-            console.log(adminToken)
             
                 await expectApiError(
                 usersApi(adminToken).getUserById({ id: user.id }),

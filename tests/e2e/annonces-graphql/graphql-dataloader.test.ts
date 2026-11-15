@@ -4,8 +4,8 @@ import type { Server } from "node:http";
 import express from "express";
 
 import { PrismaPg } from "@prisma/adapter-pg";
-import { PrismaClient } from "../../src/generated/prisma/client.js";
-import { createGraphqlAnnonceHandler } from "../../src/graphql/annonces.js";
+import { PrismaClient } from "../../../src/generated/prisma/client.js";
+import { createGraphqlAnnonceHandler } from "../../../src/graphql/annonces.js";
 
 let prisma: PrismaClient;
 let server: Server;

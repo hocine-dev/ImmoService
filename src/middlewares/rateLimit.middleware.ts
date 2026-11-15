@@ -75,6 +75,7 @@ const questionLimiter = rateLimit({
   max: 20,
   standardHeaders: true,
   legacyHeaders: false,
+  skip: disabled,
   handler: (_req, res) => {
     res.status(429).json(
       apiError("RATE_LIMIT_EXCEEDED", "Trop de questions envoyées")

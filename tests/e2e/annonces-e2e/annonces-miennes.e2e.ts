@@ -1,6 +1,6 @@
 
 import { describe, it, expect } from "vitest";
-import { AnnoncesApi, Configuration } from "../../sdk/index.js";
+import { AnnoncesApi, Configuration } from "../../../sdk/index.js";
 
 // Client généré depuis OpenAPI, connecté au serveur de test.
 const api = new AnnoncesApi(

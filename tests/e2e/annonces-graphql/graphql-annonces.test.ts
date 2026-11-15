@@ -18,14 +18,24 @@ type GraphQLResult = {
                 limit: number;
                 total: number;
                 pages: number;
-            };
+            } | null;
+            erreur?: {
+                code: string;
+                message: string;
+            } | null;
         };
         annonce?: {
-            id: string;
-            titre: string;
-            ville: string;
-            prix: string;
-        } | null;
+            annonce: {
+                id: string;
+                titre: string;
+                ville: string;
+                prix: string;
+            } | null;
+            erreur?: {
+                code: string;
+                message: string;
+            } | null;
+        };
     } | null;
     errors?: Array<{ message: string }>;
 };
@@ -103,8 +113,8 @@ describe("GraphQL annonces - Tests E2E", () => {
 
         expect(result.errors).toBeUndefined();
         expect(result.data?.annonces?.data).toHaveLength(2);
-        expect(result.data?.annonces?.pagination.page).toBe(1);
-        expect(result.data?.annonces?.pagination.limit).toBe(2);
+        expect(result.data?.annonces?.pagination?.page).toBe(1);
+        expect(result.data?.annonces?.pagination?.limit).toBe(2);
     });
 
     it("filtre les annonces par ville", async () => {
@@ -131,13 +141,13 @@ describe("GraphQL annonces - Tests E2E", () => {
         const result = await graphql(`
             {
                 annonce(id: "demo-immo-annonce-12") {
-                    id titre ville prix
+                    annonce { id titre ville prix }
                 }
             }
         `);
 
         expect(result.errors).toBeUndefined();
-        expect(result.data?.annonce?.id)
+        expect(result.data?.annonce?.annonce?.id)
             .toBe("demo-immo-annonce-12");
     });
 
@@ -145,26 +155,30 @@ describe("GraphQL annonces - Tests E2E", () => {
         const result = await graphql(`
             {
                 annonce(id: "demo-immo-annonce-13") {
-                    id titre
+                    annonce { id titre }
                 }
             }
         `);
 
         expect(result.errors).toBeUndefined();
-        expect(result.data?.annonce).toBeNull();
+        expect(result.data?.annonce?.annonce).toBeNull();
     });
 
     it("refuse une pagination invalide", async () => {
         const result = await graphql(`
             {
                 annonces(limit: 101) {
+                    data { id }
                     pagination { total }
+                    erreur { code message }
                 }
             }
         `);
 
-        expect(result.errors?.length).toBeGreaterThan(0);
-        expect(result.errors?.[0].message)
+        expect(result.errors).toBeUndefined();
+        expect(result.data?.annonces?.data).toEqual([]);
+        expect(result.data?.annonces?.pagination).toBeNull();
+        expect(result.data?.annonces?.erreur?.message)
             .toBe("Paramètres d'annonces invalides");
     });
 });
@@ -216,34 +230,33 @@ describe("GraphQL annonces - Sécurité JWT", () => {
             const query = `
                 {
                     annonce(id: "${annonce.id}") {
-                        id
-                        titre
+                        annonce { id titre }
                     }
                 }
             `;
 
             // Sans JWT : brouillon invisible.
             const visiteur = await graphql(query);
-            expect(visiteur.data?.annonce).toBeNull();
+            expect(visiteur.data?.annonce?.annonce).toBeNull();
 
             // Propriétaire : brouillon visible.
             const proprietaire = await graphql(query, agent1);
             expect(proprietaire.errors).toBeUndefined();
-            expect(proprietaire.data?.annonce?.id)
+            expect(proprietaire.data?.annonce?.annonce?.id)
                 .toBe(annonce.id);
 
             // Autre agent : accès interdit.
             const autreAgent = await graphql(query, agent2);
-            expect(autreAgent.data?.annonce).toBeNull();
+            expect(autreAgent.data?.annonce?.annonce).toBeNull();
 
             // USER : accès interdit.
             const utilisateur = await graphql(query, user);
-            expect(utilisateur.data?.annonce).toBeNull();
+            expect(utilisateur.data?.annonce?.annonce).toBeNull();
 
             // ADMIN : accès autorisé.
             const administrateur = await graphql(query, admin);
             expect(administrateur.errors).toBeUndefined();
-            expect(administrateur.data?.annonce?.id)
+            expect(administrateur.data?.annonce?.annonce?.id)
                 .toBe(annonce.id);
 
         } finally {
@@ -272,7 +285,7 @@ describe("GraphQL annonces - Sécurité JWT", () => {
                     Authorization: "Bearer token-invalide"
                 },
                 body: JSON.stringify({
-                    query: "{ annonce(id: \"demo-immo-annonce-12\") { id } }"
+                    query: "{ annonce(id: \"demo-immo-annonce-12\") { annonce { id } } }"
                 })
             }
         );

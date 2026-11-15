@@ -199,16 +199,40 @@ d'une annonce publiée prennent en charge la revalidation et les réponses
 `304`. Les brouillons, les données personnelles et les opérations d'écriture
 utilisent des politiques empêchant leur stockage.
 
-## API GraphQL — Annonces
+## API GraphQL
 
 L'API GraphQL est accessible avec `POST /graphql` :
-<http://localhost:3001/graphql>. Elle réutilise le Repository, les services,
-les schémas Zod et les règles d'autorisation des annonces REST.
+<http://localhost:3001/graphql>. Il n'existe plus de routes GraphQL séparées
+par ressource. Le schéma commun réutilise les repositories, services,
+validations Zod et règles d'autorisation de l'API REST.
 
-**Consultation (Queries)** :
+Les opérations protégées utilisent le JWT envoyé dans l'en-tête
+`Authorization`. Les payloads fonctionnels exposent un champ
+`erreur` contenant `code`, `message` et, pour les validations, `details`.
 
-- `annonces(page, limit, ville, type, prixMax)` : liste publique, paginée et filtrable ;
+### Queries
+
+**Annonces**
+
+- `annonces(page, limit, ville, type, prixMax)` : liste publique paginée et filtrable ;
 - `annonce(id)` : détail d'une annonce, avec contrôle d'accès aux brouillons.
+
+**Questions**
+
+- `questionsByAnnonce(annonceId, page = 1, limit = 10)` : liste paginée des questions d'une annonce.
+
+**Réponses**
+
+- `reponseByQuestion(questionId)` : réponse associée à une question, lorsqu'elle existe.
+
+**Utilisateurs**
+
+- `users(page = 1, limit = 10)` : liste des utilisateurs, réservée aux administrateurs ;
+- `user(id, page = 1, limit = 10)` : profil de l'utilisateur courant ou profil consulté par un administrateur.
+
+Le profil utilisateur contient ses annonces, ses favoris et leurs paginations.
+Un favori expose `id`, `userId`, `annonceId` et `annonce`. Cette dernière
+relation est nullable lorsqu'une annonce n'est plus accessible.
 
 Exemple de requête GraphQL pour consulter les annonces et leurs auteurs :
 
@@ -227,17 +251,38 @@ query {
 }
 ```
 
-**Écriture (Mutations)** :
+### Mutations
 
 - `creerAnnonce(input)` : création d'une annonce en brouillon ;
 - `modifierAnnonce(id, input)` : modification d'une annonce ;
 - `supprimerAnnonce(id)` : suppression d'une annonce ;
 - `changerStatutAnnonce(id, statut)` : publication ou retour en brouillon.
 
-Les mutations nécessitent un JWT (`Authorization: Bearer <token>`). Seuls
-les agents et administrateurs autorisés peuvent modifier les annonces ;
-les contrôles de propriété empêchent de modifier les annonces d'un autre agent.
-La validation utilise les mêmes schémas Zod que REST.
+**Questions**
+
+- `createQuestion(input)` : création d'une question pour une annonce ;
+- `deleteQuestion(id)` : suppression d'une question selon les contrôles d'autorisation.
+
+**Favoris**
+
+- `createFavori(input)` : ajout d'une annonce aux favoris de l'utilisateur authentifié ;
+- `deleteFavori(annonceId)` : retrait d'une annonce des favoris de l'utilisateur authentifié.
+
+**Réponses**
+
+- `createReponse(input)` : création d'une réponse par l'agent autorisé ;
+- `deleteReponse(id)` : suppression d'une réponse selon les règles d'autorisation.
+
+**Utilisateurs**
+
+- `registerUser(input)` : inscription d'un utilisateur, avec le rôle initial `USER` ;
+- `updateUser(id, input)` : modification d'un utilisateur ; le rôle est modifiable uniquement par un administrateur ;
+- `deleteUser(id)` : suppression d'un utilisateur selon les règles d'autorisation.
+
+Les mutations protégées nécessitent un JWT envoyé dans l'en-tête
+`Authorization`.
+Les opérations d'écriture sur les annonces restent réservées aux agents et
+administrateurs autorisés, avec contrôle de propriété.
 
 Exemple de mutation :
 
@@ -273,8 +318,10 @@ Mutations GraphQL sont décrites ici et dans le schéma `src/graphql/annonces.ts
 
 Le contrat est documenté dans `openapi.yaml`.
 
-L'approche repose sur une spécification OpenAPI maintenue avec
-l'implémentation TypeScript et les validations Zod.
+Le projet utilise une approche **contract-first** : `openapi.yaml` constitue
+le contrat de référence, le SDK TypeScript est généré à partir de cette
+spécification et les tests E2E utilisent ce SDK. L'implémentation TypeScript
+et les validations Zod respectent ce contrat.
 
 Régénérer le SDK TypeScript depuis le contrat :
 

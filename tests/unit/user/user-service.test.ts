@@ -152,9 +152,23 @@ describe("userService.getUserById", () => {
 
         expect(prisma.user.findUnique).toHaveBeenCalledWith({
             where: { id: "user-1" },
-            include: {
-                annonces: { skip: 10, take: 5 },
-                favoris: { skip: 10, take: 5 },
+            select: {
+                id: true,
+                name: true,
+                email: true,
+                role: true,
+                createdAt: true,
+                updatedAt: true,
+                annonces: {
+                    skip: 10,
+                    take: 5,
+                    select: expect.any(Object)
+                },
+                favoris: {
+                    skip: 10,
+                    take: 5,
+                    select: expect.any(Object)
+                },
                 _count: { select: { annonces: true, favoris: true } }
             }
         });
@@ -167,8 +181,12 @@ describe("userService.getUserById", () => {
 
         expect(prisma.user.findUnique).toHaveBeenCalledWith(
             expect.objectContaining({
-                include: expect.objectContaining({
-                    annonces: { skip: 0, take: 10 }
+                select: expect.objectContaining({
+                    annonces: expect.objectContaining({
+                        skip: 0,
+                        take: 10,
+                        select: expect.any(Object)
+                    })
                 })
             })
         );
@@ -195,12 +213,16 @@ describe("userService.getUserById", () => {
         });
     });
 
-    it("ne retourne ni le passwordHash ni le compteur interne _count", async () => {
+    it("ne sélectionne ni le passwordHash ni le compteur interne dans le profil", async () => {
         prisma.user.findUnique.mockResolvedValue(userRecord());
 
         const result = await service.getUserById("user-1", "user-1", Role.USER);
 
-        expect(result).not.toHaveProperty("passwordHash");
+        const args = prisma.user.findUnique.mock.calls[0][0];
+        expect(args.select.passwordHash).toBeUndefined();
+        expect(args.select._count).toEqual({
+            select: { annonces: true, favoris: true }
+        });
         expect(result).not.toHaveProperty("_count");
     });
 });

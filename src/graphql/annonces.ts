@@ -74,7 +74,13 @@ const schema = buildSchema(`
 
     type AnnoncesPage {
         data: [Annonce!]!
-        pagination: Pagination!
+        pagination: Pagination
+        erreur: ErreurValidation
+    }
+
+    type AnnonceQueryPayload {
+        annonce: Annonce
+        erreur: ErreurValidation
     }
 
     type Query {
@@ -86,7 +92,7 @@ const schema = buildSchema(`
             prixMax: String
         ): AnnoncesPage!
 
-        annonce(id: ID!): Annonce
+        annonce(id: ID!): AnnonceQueryPayload!
 
         questionsByAnnonce(
             annonceId: ID!
@@ -483,17 +489,24 @@ export function createGraphqlAnnonceHandler(
             });
 
             if (!result.success) {
-                throw new GraphQLError(
-                    "Paramètres d'annonces invalides",
-                    {
-                        extensions: {
-                            code: "BAD_USER_INPUT"
-                        }
+                return {
+                    data: [],
+                    pagination: null,
+                    erreur: {
+                        code: "VALIDATION_ERROR",
+                        message: "Paramètres d'annonces invalides",
+                        details: result.error.issues.map(issue => ({
+                            champ: issue.path.join(".") || "query",
+                            messages: [issue.message]
+                        }))
                     }
-                );
+                };
             }
 
-            return service.listAnnonces(result.data);
+            return {
+                ...(await service.listAnnonces(result.data)),
+                erreur: null
+            };
         },
 
 
@@ -505,24 +518,30 @@ export function createGraphqlAnnonceHandler(
             const result = annonceIdSchema.safeParse({ id });
 
             if (!result.success) {
-                throw new GraphQLError(
-                    "Identifiant d'annonce invalide",
-                    {
-                        extensions: {
-                            code: "BAD_USER_INPUT"
-                        }
+                return {
+                    annonce: null,
+                    erreur: {
+                        code: "VALIDATION_ERROR",
+                        message: "Identifiant d'annonce invalide",
+                        details: result.error.issues.map(issue => ({
+                            champ: issue.path.join(".") || "id",
+                            messages: [issue.message]
+                        }))
                     }
-                );
+                };
             }
 
             // Réutiliser la politique d'accès REST.
             // Le Repository décide si le demandeur
             // peut consulter cette annonce.
-            return getAnnonceById(
-                repository,
-                result.data.id,
-                context.viewer
-            );
+            return {
+                annonce: await getAnnonceById(
+                    repository,
+                    result.data.id,
+                    context.viewer
+                ),
+                erreur: null
+            };
         }
 
     };

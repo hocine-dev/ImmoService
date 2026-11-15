@@ -291,8 +291,9 @@ describe("GraphQL User - Consultation du profil", () => {
             token
         );
 
-        expect(result.errors).toBeDefined();
-        expect(result.errors?.[0].extensions?.code).toBe("BAD_USER_INPUT");
+        expect(result.errors).toBeUndefined();
+        expect(result.data?.user?.user).toBeNull();
+        expect(result.data?.user?.erreur?.code).toBe("VALIDATION_ERROR");
     });
 
     it("refuse la consultation sans authentification", async () => {

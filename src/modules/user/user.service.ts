@@ -11,7 +11,7 @@ export type DataType = {
   name: string;
   email: string;
   password: string;
-  role?: Role;
+  role?: "USER" | "AGENT" | "ADMIN";
 }
 
 export function createUserService(prisma: PrismaClient) {
@@ -57,14 +57,42 @@ export function createUserService(prisma: PrismaClient) {
 
       const user = await prisma.user.findUnique({
         where: { id },
-        include: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          role: true,
+          createdAt: true,
+          updatedAt: true,
           annonces: {
             skip: (page - 1) * limit,
             take: limit,
+            select: {
+              id: true,
+              titre: true,
+              description: true,
+              type: true,
+              typePropriete: true,
+              statut: true,
+              etat: true,
+              prix: true,
+              dateDisponibilite: true,
+              ville: true,
+              surface: true,
+              chambres: true,
+              createdAt: true,
+              updatedAt: true,
+              auteurId: true
+            }
           },
           favoris: {
             skip: (page - 1) * limit,
             take: limit,
+            select: {
+              id: true,
+              userId: true,
+              annonceId: true
+            }
           },
           _count: {
             select: {
@@ -79,7 +107,7 @@ export function createUserService(prisma: PrismaClient) {
         return { error: "NOT_FOUND" as const };
       }
 
-      const { passwordHash, _count, ...profile } = user;
+      const { _count, ...profile } = user;
 
       return {
         ...profile,

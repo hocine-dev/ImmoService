@@ -17,17 +17,6 @@ import {
  * Objectif : vérifier les règles de validation Zod
  * sans démarrer Express ni PostgreSQL.
  */
-
-/**
- *
- * 1. On teste les schémas Zod pour vérifier la validation
- *    des données et de l'identifiant du PATCH.
- *
- * 2. On simule les réponses du Repository et on teste
- *    si le Service transmet les bons arguments au Repository
- *    et retourne correctement son résultat.
- */
-
 describe("PATCH /annonces/:id - Validation Zod", () => {
 
     it("accepte une modification partielle", () => {

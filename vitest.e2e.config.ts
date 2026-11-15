@@ -5,15 +5,19 @@ export default defineConfig({
         dedupe: ["graphql"]
     },
     test: {
+
+        include: ["tests/e2e/**/*.{test,e2e}.ts"],
         server: {
             deps: {
                 inline: ["graphql", "graphql-http"]
             }
         },
-        include: ["tests/e2e/**/*.test.ts"],
         globalSetup: ["./tests/e2e/global-setup.ts"],
 
         // Les tests partagent une même base de test.
-        fileParallelism: false
+        fileParallelism: false,
+        testTimeout: 20000,
+        hookTimeout: 20000
+
     }
 });

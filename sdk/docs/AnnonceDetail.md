@@ -21,7 +21,7 @@ Name | Type
 `dateDisponibilite` | Date
 `updatedAt` | Date
 `auteurId` | string
-`photos` | [Array&lt;AnnonceDetailAllOfPhotos&gt;](AnnonceDetailAllOfPhotos.md)
+`photos` | [Array&lt;AnnonceCreeeAllOfPhotos&gt;](AnnonceCreeeAllOfPhotos.md)
 
 ## Example
 
